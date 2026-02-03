@@ -67,3 +67,7 @@ fastlane/test_output
 .vscode
 # Project specific
 MIGRATION_PLAN.md
+/Rules
+*DevNotes.md
+*AGENTS.md
+plan.md
