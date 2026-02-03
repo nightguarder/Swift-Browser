@@ -9,28 +9,33 @@ import SwiftUI
 
 @main
 struct Swift_BrowserApp: App {
-    @State private var showSplash = true
+    @AppStorage("hasLaunchedBefore") private var hasLaunchedBefore: Bool = false
+    @AppStorage("darkModeEnabled") private var darkModeEnabled: Bool = false
+    @State private var showSplash = false
 
     var body: some Scene {
         WindowGroup {
             ZStack {
-                if showSplash {
+                if !hasLaunchedBefore {
+                    WelcomeView(showSplash: $showSplash)
+                } else if showSplash {
                     SplashScreen()
+                        .onAppear {
+                            // Auto-dismiss splash after 2 seconds
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                                withAnimation(.easeInOut(duration: 0.8)) {
+                                    showSplash = false
+                                }
+                            }
+                        }
                 } else {
                     BrowserView()
                 }
             }
-            .onAppear {
-                // Auto-dismiss splash after 2 seconds
-                DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-                    withAnimation(.easeInOut(duration: 0.8)) {
-                        showSplash = false
-                    }
-                }
-            }
+            .preferredColorScheme(darkModeEnabled ? .dark : .light)
         }
         .commands {
-             SidebarCommands() 
+             SidebarCommands()
         }
     }
 }

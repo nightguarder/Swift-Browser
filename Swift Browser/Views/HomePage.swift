@@ -8,11 +8,16 @@
 import SwiftUI
 
 // Integrated GlassEffect here to avoid modifying project file manually
-struct GlassEffect: NSViewRepresentable {
-    var material: NSVisualEffectView.Material = .sidebar
-    var blendingMode: NSVisualEffectView.BlendingMode = .behindWindow
+public struct GlassEffect: NSViewRepresentable {
+    public var material: NSVisualEffectView.Material = .sidebar
+    public var blendingMode: NSVisualEffectView.BlendingMode = .behindWindow
 
-    func makeNSView(context: Context) -> NSVisualEffectView {
+    public init(material: NSVisualEffectView.Material = .sidebar, blendingMode: NSVisualEffectView.BlendingMode = .behindWindow) {
+        self.material = material
+        self.blendingMode = blendingMode
+    }
+
+    public func makeNSView(context: Context) -> NSVisualEffectView {
         let view = NSVisualEffectView()
         view.material = material
         view.blendingMode = blendingMode
@@ -20,19 +25,25 @@ struct GlassEffect: NSViewRepresentable {
         return view
     }
 
-    func updateNSView(_ nsView: NSVisualEffectView, context: Context) {
+    public func updateNSView(_ nsView: NSVisualEffectView, context: Context) {
         nsView.material = material
         nsView.blendingMode = blendingMode
     }
 }
 
-struct HomePage: View {
-    var onSearch: (String) -> Void
-    var bookmarks: [Bookmark]
+public struct HomePage: View {
+    public var onSearch: (String) -> Void
+    public var bookmarks: [Bookmark]
 
     @State private var searchText: String = ""
+    @FocusState private var isSearchFieldFocused: Bool
+    
+    public init(onSearch: @escaping (String) -> Void, bookmarks: [Bookmark]) {
+        self.onSearch = onSearch
+        self.bookmarks = bookmarks
+    }
 
-    var body: some View {
+    public var body: some View {
         ZStack {
             // Glassmorphic background
             GlassEffect(material: .headerView, blendingMode: .behindWindow)
@@ -74,6 +85,7 @@ struct HomePage: View {
                         .textFieldStyle(.plain)
                         .font(.title3)
                         .disableAutocorrection(true)
+                        .focused($isSearchFieldFocused)
                     
                     if !searchText.isEmpty {
                         Button(action: { searchText = "" }) {
@@ -163,6 +175,12 @@ struct HomePage: View {
                 Spacer()
             }
             .padding()
+            .onAppear {
+                // Auto-focus search field when home page appears
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    isSearchFieldFocused = true
+                }
+            }
         }
     }
 }
