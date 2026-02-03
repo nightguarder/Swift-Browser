@@ -9,23 +9,47 @@ import SwiftUI
 import WebKit
 
 #if os(iOS)
-struct WebViewContainer: UIViewRepresentable {
-    let webView: WKWebView
+public struct WebViewContainer: UIViewRepresentable {
+    public let webView: WKWebView
 
-    func makeUIView(context: Context) -> WKWebView {
+    public init(webView: WKWebView) {
+        self.webView = webView
+    }
+
+    public func makeUIView(context: Context) -> WKWebView {
         return webView
     }
 
-    func updateUIView(_ uiView: WKWebView, context: Context) {}
+    public func updateUIView(_ uiView: WKWebView, context: Context) {}
+
+    public static func dismantleUIView(_ uiView: WKWebView, coordinator: ()) {
+        uiView.stopLoading()
+        uiView.navigationDelegate = nil
+        uiView.uiDelegate = nil
+        uiView.configuration.userContentController.removeAllUserScripts()
+        uiView.removeFromSuperview()
+    }
 }
 #elseif os(macOS)
-struct WebViewContainer: NSViewRepresentable {
-    let webView: WKWebView
+public struct WebViewContainer: NSViewRepresentable {
+    public let webView: WKWebView
 
-    func makeNSView(context: Context) -> WKWebView {
+    public init(webView: WKWebView) {
+        self.webView = webView
+    }
+
+    public func makeNSView(context: Context) -> WKWebView {
         return webView
     }
 
-    func updateNSView(_ nsView: WKWebView, context: Context) {}
+    public func updateNSView(_ nsView: WKWebView, context: Context) {}
+
+    public static func dismantleNSView(_ nsView: WKWebView, coordinator: ()) {
+        nsView.stopLoading()
+        nsView.navigationDelegate = nil
+        nsView.uiDelegate = nil
+        nsView.configuration.userContentController.removeAllUserScripts()
+        nsView.removeFromSuperview()
+    }
 }
 #endif

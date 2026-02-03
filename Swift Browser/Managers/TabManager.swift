@@ -9,81 +9,102 @@ import SwiftUI
 import WebKit
 import Combine
 
-final class TabManager: ObservableObject {
-    @Published var tabs: [BrowserTab] = []
-    @Published var currentTab: BrowserTab?
-    @Published var addressBarText: String = ""
+public final class TabManager: ObservableObject {
+    @Published public var tabs: [BrowserTab] = []
+    @Published public var currentTab: BrowserTab?
+    @Published public var addressBarText: String = ""
+    @Published public var previousTabId: UUID?
 
     private var cancellables = Set<AnyCancellable>()
 
-    init() {
+    public init() {
+        setupActiveTabObservation()
         addTab() // start with one tab open
     }
 
-    func addTab() {
+    private func setupActiveTabObservation() {
+        // Observe currentTab changes and subscribe to its webView's URL
+        $currentTab
+            .receive(on: DispatchQueue.main)
+            .flatMap { tab -> AnyPublisher<String, Never> in
+                guard let tab = tab else {
+                    return Just("").eraseToAnyPublisher()
+                }
+                // Return the current URL or the tab's internal URL if it's an internal page
+                return tab.webView.$currentURL
+                    .map { $0?.absoluteString ?? tab.url }
+                    .eraseToAnyPublisher()
+            }
+            .assign(to: &$addressBarText)
+    }
+
+    public func addTab() {
         let webView = WebViewManager()
         let newTab = BrowserTab(title: "Home", url: "", webView: webView)
         
-        // Subscribe to WebView updates
-        webView.$currentURL
-            .compactMap { $0?.absoluteString }
-            .sink { [weak newTab] url in
-                newTab?.url = url
-            }
-            .store(in: &cancellables)
-            
-        webView.$pageTitle
-            .compactMap { $0 }
-            .sink { [weak newTab] title in
-                newTab?.title = title
-            }
-            .store(in: &cancellables)
-            
-        // Update address bar if this is the current tab
-        webView.$currentURL
-            .filter { [weak self] _ in self?.currentTab?.id == newTab.id }
-            .compactMap { $0?.absoluteString }
-            .sink { [weak self] url in
-                self?.addressBarText = url
-            }
-            .store(in: &cancellables)
-
+        // Track previous tab before switching
+        if let current = currentTab {
+            previousTabId = current.id
+        }
+        
         tabs.append(newTab)
         currentTab = newTab
-        addressBarText = ""
     }
 
-    func closeTab(_ tab: BrowserTab) {
+    public func closeTab(_ tab: BrowserTab) {
+        let wasCurrent = currentTab?.id == tab.id
         tabs.removeAll { $0.id == tab.id }
-        if currentTab?.id == tab.id {
-            currentTab = tabs.last
-            addressBarText = currentTab?.url ?? ""
+        
+        if wasCurrent {
+            if let prevId = previousTabId, let prevTab = tabs.first(where: { $0.id == prevId }) {
+                switchToTab(prevTab)
+                previousTabId = nil // Clear it after returning
+            } else {
+                currentTab = tabs.last
+                addressBarText = currentTab?.url ?? ""
+            }
         }
     }
 
-    func switchToTab(_ tab: BrowserTab) {
+    public func switchToTab(_ tab: BrowserTab) {
+        if let current = currentTab, current.id != tab.id {
+            previousTabId = current.id
+        }
         currentTab = tab
         addressBarText = tab.url
     }
 
-    func nextTab() {
+    public func nextTab() {
         guard let current = currentTab, let index = tabs.firstIndex(where: { $0.id == current.id }) else { return }
         let nextIndex = (index + 1) % tabs.count
         switchToTab(tabs[nextIndex])
     }
 
-    func previousTab() {
+    public func previousTab() {
         guard let current = currentTab, let index = tabs.firstIndex(where: { $0.id == current.id }) else { return }
         let prevIndex = (index - 1 + tabs.count) % tabs.count
         switchToTab(tabs[prevIndex])
     }
 
-    func switchToIndex(_ index: Int) {
+    public func switchToIndex(_ index: Int) {
         guard index >= 0 && index < tabs.count else { return }
         switchToTab(tabs[index])
     }
 
-    func loadCurrent() {
+    public func openSettings() {
+        // Check if settings tab already exists
+        if let settingsTab = tabs.first(where: { $0.url == "swiftbrowser://settings" }) {
+            switchToTab(settingsTab)
+        } else {
+            let webView = WebViewManager()
+            let settingsTab = BrowserTab(title: "Settings", url: "swiftbrowser://settings", webView: webView)
+            tabs.append(settingsTab)
+            switchToTab(settingsTab)
+        }
+        addressBarText = "Settings"
+    }
+
+    public func loadCurrent() {
         print("DEBUG: TabManager loadCurrent() called with text: '\(addressBarText)'")
         guard let currentTab = currentTab else { 
             print("DEBUG: loadCurrent failed - currentTab is nil")
