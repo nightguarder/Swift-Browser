@@ -8,7 +8,7 @@ Swift Browser is a privacy-focused macOS browser built with SwiftUI and WebKit. 
 
 ---
 
-![HomePage](/Docs/img/HomePage_v0.1.png)
+![Newest Capture of Browser](/Docs/v0.1/HomePage_v0.1.png)
 
 ## Table of Contents
 
@@ -18,9 +18,9 @@ Swift Browser is a privacy-focused macOS browser built with SwiftUI and WebKit. 
   - [Why another Browser?](#why-another-browser)
   - [Features](#features)
   - [Roadmap](#roadmap)
-      - [v0.x:](#v0x)
-      - [v1.0:](#v10)
-      - [v2.0:](#v20)
+    - [v0.x:](#v0x)
+    - [v1.0:](#v10)
+    - [v2.0:](#v20)
   - [Getting Started](#getting-started)
   - [Build \& Run](#build--run)
   - [Usage](#usage)
@@ -61,7 +61,7 @@ The goal of this project is to keep it as lightweight as possible and prefer **s
 
 #### v0.x:
 
-- Core browser – tab management, navigation, WebKit integration
+- [x] v0.1 - Core browser: tab management, tab navigation, settings page
 - Basic features - Home, Local History, Bookmark shortcuts
 - Testing: unit and UI tests, CI integration
 
