@@ -8,8 +8,8 @@
 import Foundation
 import WebKit
 
-final class ContentBlockerManager {
-    static let shared = ContentBlockerManager()
+public final class ContentBlockerManager {
+    public static let shared = ContentBlockerManager()
     
     // Foundational blocklist for common ads and trackers
     // Uses the WKContentRuleList format (JSON)
@@ -59,14 +59,23 @@ final class ContentBlockerManager {
     ]
     """
     
-    func applyBlocklist(to configuration: WKWebViewConfiguration, completion: @escaping () -> Void) {
+    private var compiledRuleList: WKContentRuleList?
+
+    public func applyBlocklist(to configuration: WKWebViewConfiguration, completion: @escaping () -> Void) {
+        if let ruleList = compiledRuleList {
+            configuration.userContentController.add(ruleList)
+            completion()
+            return
+        }
+
         WKContentRuleListStore.default().compileContentRuleList(
             forIdentifier: "SwiftBrowserBlockList",
             encodedContentRuleList: blocklistJSON
-        ) { ruleList, error in
+        ) { [weak self] ruleList, error in
             if let error = error {
                 print("Content Blocker Error: \(error.localizedDescription)")
             } else if let ruleList = ruleList {
+                self?.compiledRuleList = ruleList
                 configuration.userContentController.add(ruleList)
             }
             completion()

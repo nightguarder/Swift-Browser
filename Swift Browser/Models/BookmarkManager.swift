@@ -7,19 +7,19 @@
 import Foundation
 import Combine
 
-struct Bookmark: Identifiable, Codable {
-    let id: UUID
-    let title: String
-    let url: String
+public struct Bookmark: Identifiable, Codable {
+    public let id: UUID
+    public let title: String
+    public let url: String
 
-    init(id: UUID = UUID(), title: String, url: String) {
+    public init(id: UUID = UUID(), title: String, url: String) {
         self.id = id
         self.title = title
         self.url = url
     }
 }
 
-final class BookmarkManager: ObservableObject {
+public final class BookmarkManager: ObservableObject {
     @Published var bookmarks: [Bookmark] = []
 
     private let key = "Bookmarks"
@@ -29,9 +29,26 @@ final class BookmarkManager: ObservableObject {
     }
 
     func addBookmark(title: String, url: String) {
-        let bookmark = Bookmark(title: title, url: url)
+        // Validate inputs
+        let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedURL = url.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        guard !trimmedTitle.isEmpty, !trimmedURL.isEmpty else { return }
+        
+        // Check for duplicates (case-insensitive URL comparison)
+        let normalizedURL = trimmedURL.lowercased()
+        if bookmarks.contains(where: { $0.url.lowercased() == normalizedURL }) {
+            return // Already bookmarked
+        }
+        
+        let bookmark = Bookmark(title: trimmedTitle, url: trimmedURL)
         bookmarks.append(bookmark)
         save()
+    }
+    
+    func isBookmarked(url: String) -> Bool {
+        let normalizedURL = url.lowercased()
+        return bookmarks.contains(where: { $0.url.lowercased() == normalizedURL })
     }
 
     func removeBookmark(_ bookmark: Bookmark) {
