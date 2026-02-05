@@ -10,29 +10,49 @@ import SwiftUI
 @main
 struct Swift_BrowserApp: App {
     @AppStorage("hasLaunchedBefore") private var hasLaunchedBefore: Bool = false
-    @AppStorage("darkModeEnabled") private var darkModeEnabled: Bool = false
+    @AppStorage("darkModePreference") private var darkModePreference: DarkModeManager.DarkModePreference = .system
     @State private var showSplash = false
 
     var body: some Scene {
         WindowGroup {
-            ZStack {
-                if !hasLaunchedBefore {
-                    WelcomeView(showSplash: $showSplash)
-                } else if showSplash {
-                    SplashScreen()
-                        .onAppear {
-                            // Auto-dismiss splash after 2 seconds
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-                                withAnimation(.easeInOut(duration: 0.8)) {
-                                    showSplash = false
+            if darkModePreference == .system {
+                ZStack {
+                    if !hasLaunchedBefore {
+                        WelcomeView(showSplash: $showSplash)
+                    } else if showSplash {
+                        SplashScreen()
+                            .onAppear {
+                                // Auto-dismiss splash after 2 seconds
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                                    withAnimation(.easeInOut(duration: 0.8)) {
+                                        showSplash = false
+                                    }
                                 }
                             }
-                        }
-                } else {
-                    BrowserView()
+                    } else {
+                        BrowserView()
+                    }
                 }
+            } else {
+                ZStack {
+                    if !hasLaunchedBefore {
+                        WelcomeView(showSplash: $showSplash)
+                    } else if showSplash {
+                        SplashScreen()
+                            .onAppear {
+                                // Auto-dismiss splash after 2 seconds
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                                    withAnimation(.easeInOut(duration: 0.8)) {
+                                        showSplash = false
+                                    }
+                                }
+                            }
+                    } else {
+                        BrowserView()
+                    }
+                }
+                .preferredColorScheme(darkModePreference == .dark ? .dark : .light)
             }
-            .preferredColorScheme(darkModeEnabled ? .dark : .light)
         }
         .commands {
              SidebarCommands()

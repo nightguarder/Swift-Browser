@@ -12,8 +12,9 @@ public struct SettingsView: View {
     @ObservedObject var tabManager: TabManager
     @State private var showResetConfirmation = false
     @AppStorage("contentBlockerEnabled") private var contentBlockerEnabled = true
-    @AppStorage("darkModeEnabled") private var darkModeEnabled = false
+    @AppStorage("darkModePreference") private var darkModePreference: DarkModeManager.DarkModePreference = .system
     @AppStorage("doNotTrackEnabled") private var doNotTrackEnabled = true
+    @AppStorage("developerModeEnabled") private var developerModeEnabled = false
     
     public init(tabManager: TabManager) {
         self.tabManager = tabManager
@@ -70,14 +71,60 @@ public struct SettingsView: View {
                             .font(.system(size: 16, weight: .bold))
                             .padding(.bottom, 4)
                         
-                        // Dark Mode Toggle
+                        // Dark Mode Picker
+                        HStack {
+                            Image(systemName: "moon.fill")
+                                .foregroundColor(.indigo)
+                                .font(.system(size: 20))
+                                .frame(width: 24)
+                            
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Dark Mode")
+                                    .font(.system(size: 14, weight: .medium))
+                                Text("Choose your preferred appearance")
+                                    .font(.system(size: 11))
+                                    .foregroundColor(.secondary)
+                            }
+                            
+                            Spacer()
+                            
+                            Picker("", selection: $darkModePreference) {
+                                ForEach(DarkModeManager.DarkModePreference.allCases, id: \.self) { pref in
+                                    Text(pref.displayName).tag(pref)
+                                }
+                            }
+                             .pickerStyle(.menu)
+                             .frame(width: 140)
+                             .onChange(of: darkModePreference) { _ in
+                                 tabManager.updateDarkMode()
+                             }
+                        }
+                        .padding(12)
+                        .background(Color.indigo.opacity(0.05))
+                        .cornerRadius(8)
+                    }
+                    
+                    // Developer Section
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Developer")
+                            .font(.system(size: 16, weight: .bold))
+                            .padding(.bottom, 4)
+                        
                         settingsRow(
-                            icon: "moon.fill",
-                            color: .indigo,
-                            title: "Dark Mode",
-                            description: "Force dark mode on websites",
-                            isOn: $darkModeEnabled
+                            icon: "hammer.fill",
+                            color: .orange,
+                            title: "Developer Mode",
+                            description: "Enable Web Inspector and debug tools",
+                            isOn: $developerModeEnabled
                         )
+                        .onChange(of: developerModeEnabled) { newValue in
+                            tabManager.updateDeveloperMode(enabled: newValue)
+                        }
+                        
+                        Text("Right-click a page and choose Inspect Element, or use Safari's Develop menu")
+                            .font(.system(size: 12))
+                            .foregroundColor(.secondary)
+                            .padding(.horizontal, 12)
                     }
                     
                     Divider()
@@ -179,7 +226,10 @@ public struct SettingsView: View {
         // Reset content blocker to default (enabled)
         defaults.set(true, forKey: "contentBlockerEnabled")
         
-        // Reset dark mode to default (disabled)
-        defaults.set(false, forKey: "darkModeEnabled")
+        // Reset dark mode preference to follow system
+        defaults.set(DarkModeManager.DarkModePreference.system.rawValue, forKey: "darkModePreference")
+        
+        // Clear History in memory
+        HistoryManager.shared.clearHistory()
     }
 }
