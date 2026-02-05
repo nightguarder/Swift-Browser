@@ -7,7 +7,6 @@
 
 import SwiftUI
 
-// Integrated GlassEffect here to avoid modifying project file manually
 public struct GlassEffect: NSViewRepresentable {
     public var material: NSVisualEffectView.Material = .sidebar
     public var blendingMode: NSVisualEffectView.BlendingMode = .behindWindow
@@ -45,17 +44,15 @@ public struct HomePage: View {
 
     public var body: some View {
         ZStack {
-            // Glassmorphic background
             GlassEffect(material: .headerView, blendingMode: .behindWindow)
                 .edgesIgnoringSafeArea(.all)
             
             VStack(spacing: 40) {
                 Spacer()
 
-                // Hero Section
                 HStack(spacing: 16) {
                     Image(systemName: "swift")
-                        .font(.system(size: 50, weight: .ultraLight))
+                        .font(AppFont.heroIcon)
                         .foregroundStyle(
                             LinearGradient(
                                 colors: [.blue, .purple],
@@ -66,15 +63,14 @@ public struct HomePage: View {
                         .shadow(color: .blue.opacity(0.3), radius: 10, x: 0, y: 5)
                     
                     Text("Swift Browser")
-                        .font(.system(size: 42, weight: .bold, design: .rounded))
+                        .font(AppFont.hero)
                         .foregroundStyle(.primary)
                 }
 
-                // Search Bar
                 HStack {
                     Image(systemName: "magnifyingglass")
                         .foregroundColor(.secondary)
-                        .font(.title3)
+                        .font(AppFont.searchField)
                     
                     TextField("Search or enter website", text: $searchText)
                         .onSubmit {
@@ -83,7 +79,7 @@ public struct HomePage: View {
                             }
                         }
                         .textFieldStyle(.plain)
-                        .font(.title3)
+                        .font(AppFont.searchField)
                         .disableAutocorrection(true)
                         .focused($isSearchFieldFocused)
                     
@@ -95,7 +91,6 @@ public struct HomePage: View {
                         .buttonStyle(.plain)
                     }
 
-                    // Fix for macOS system beep: Explicitly capture the Enter key
                     Button(action: {
                         if !searchText.isEmpty {
                             onSearch(searchText)
@@ -119,11 +114,10 @@ public struct HomePage: View {
                 .frame(maxWidth: 600)
                 .shadow(color: .black.opacity(0.05), radius: 5, x: 0, y: 2)
 
-                // Speed Dial / Favorites
                 if !bookmarks.isEmpty {
                     VStack(alignment: .leading, spacing: 20) {
                         Text("Favorites")
-                            .font(.headline)
+                            .font(AppFont.headline)
                             .foregroundStyle(.secondary)
                             .padding(.horizontal, 4)
 
@@ -140,7 +134,6 @@ public struct HomePage: View {
                                                         .stroke(Color.white.opacity(0.2), lineWidth: 1)
                                                 )
                                             
-                                            // Fallback icon until we have favicon fetching
                                             Image(systemName: "safari")
                                                 .font(.system(size: 28))
                                                 .foregroundStyle(
@@ -154,7 +147,7 @@ public struct HomePage: View {
                                         .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 2)
                                         
                                         Text(bm.title)
-                                            .font(.caption)
+                                            .font(AppFont.caption)
                                             .fontWeight(.medium)
                                             .lineLimit(1)
                                             .foregroundColor(.primary.opacity(0.8))
@@ -163,9 +156,6 @@ public struct HomePage: View {
                                     .contentShape(Rectangle())
                                 }
                                 .buttonStyle(.plain)
-                                .onHover { hovering in
-                                    // Could add hover effect here later
-                                }
                             }
                         }
                     }
@@ -176,7 +166,6 @@ public struct HomePage: View {
             }
             .padding()
             .onAppear {
-                // Auto-focus search field when home page appears
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                     isSearchFieldFocused = true
                 }

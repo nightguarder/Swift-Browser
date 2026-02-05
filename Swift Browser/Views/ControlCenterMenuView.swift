@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import WebKit
 
 public struct ControlCenterMenuView: View {
     @Binding var isExpanded: Bool
@@ -17,23 +18,31 @@ public struct ControlCenterMenuView: View {
     }
     
     public var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 6) {
+            MenuItem(icon: "clock", title: "History", isExpanded: $isExpanded) {
+                tabManager.openHistory()
+            }
+            
+            MenuItem(icon: "keyboard", title: "Shortcuts", isExpanded: $isExpanded) {
+                tabManager.openShortcuts()
+            }
+            
             MenuItem(icon: "gear", title: "Settings", isExpanded: $isExpanded) {
                 tabManager.openSettings()
             }
         }
-        .padding(8)
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(.ultraThinMaterial)
-        )
-        .frame(width: 180)
+        .padding(10)
+        .background(.ultraThinMaterial)
+        .contentShape(Rectangle())
+        .cornerRadius(12)
+        .shadow(radius: 5)
     }
 }
 
 struct MenuItem: View {
     let icon: String
     let title: String
+    let subtitle: String? = nil
     @Binding var isExpanded: Bool
     let action: () -> Void
     @State private var isHovered = false
@@ -43,20 +52,28 @@ struct MenuItem: View {
             isExpanded = false
             action()
         }) {
-            HStack(spacing: 12) {
+            HStack(spacing: 14) {
                 Image(systemName: icon)
-                    .font(.system(size: 16))
+                    .font(AppFont.icon)
                     .foregroundStyle(.secondary)
-                    .frame(width: 20)
+                    .frame(width: 24)
                 
-                Text(title)
-                    .font(.system(size: 14))
-                    .foregroundStyle(.primary)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(AppFont.title)
+                        .foregroundStyle(.primary)
+                    if let subtitle = subtitle, !subtitle.isEmpty {
+                        Text(subtitle)
+                            .font(AppFont.caption)
+                            .foregroundColor(.secondary)
+                            .lineLimit(2)
+                    }
+                }
                 
                 Spacer()
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
             .background(isHovered ? Color.primary.opacity(0.05) : Color.clear)
             .cornerRadius(6)
         }
@@ -82,7 +99,7 @@ public struct ControlCenterMenuButton: View {
             }
         }) {
             Image(systemName: "line.3.horizontal")
-                .font(.system(size: 16, weight: .medium))
+                .font(AppFont.mediumIcon)
                 .foregroundStyle(.primary)
                 .frame(width: 32, height: 32)
                 .background(
