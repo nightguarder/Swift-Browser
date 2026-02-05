@@ -103,10 +103,29 @@ Run
 
 ## Build & Run
 
+### From Xcode
+
 - Build from Xcode: `Product > Build` (CMD + B)
 - Run from Xcode: `Product > Run` (CMD + R)
 - Run tests: `Product > Test` (CMD + U)
-- Ensure you’re targeting macOS and the correct scheme (e.g., App, Tests)
+- Ensure you're targeting macOS and the correct scheme (e.g., App, Tests)
+
+### From Command Line (Without Xcode Running)
+
+You can build and run the project from the terminal without opening Xcode:
+
+```bash
+# 0. (Optional) Ensure Command Line Tools are set
+sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+
+# 1. Build the app
+xcodebuild -project "Swift Browser.xcodeproj" -scheme "Swift Browser" -configuration Debug build
+
+# 2. Run the app
+open ~/Library/Developer/Xcode/DerivedData/Swift_Browser-*/Build/Products/Debug/Swift\ Browser.app
+```
+
+**Note:** The exact DerivedData path may vary slightly based on the hash suffix. If the wildcard doesn't work, check `~/Library/Developer/Xcode/DerivedData/` for the exact folder name.
 
 ---
 
@@ -168,6 +187,12 @@ This project is licensed under the Apache License 2.0. See the LICENSE file for 
 
 ---
 
-## Credits
+ ## DevTools
+
+ This build enables WebKit Web Inspector in WKWebView for development. To open DevTools, right-click on a page element and choose Inspect Element, or press Command-Option-I. A minimal DevTools button is available in the app's toolbar as a reminder.
+
+ ---
+
+ ## Credits
 
 Thanks for the original idea and motivation to build Swift Browser to @idevanshrai and his [repository](https://github.com/idevanshrai/BrimBrowser-MacOS).
