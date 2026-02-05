@@ -11,6 +11,7 @@ import Combine
 public struct BrowserView: View {
     @StateObject public var tabManager = TabManager()
     @StateObject public var bookmarkManager = BookmarkManager()
+    @StateObject public var findInPageManager = FindInPageManager()
     @FocusState private var isAddressBarFocused: Bool
     @AppStorage("userName") private var userName: String = "User"
 
@@ -36,6 +37,28 @@ public struct BrowserView: View {
             .background(.ultraThinMaterial)
             .background(shortcuts)
             .overlay(controlCenterMenuOverlay)
+            .overlay(
+                Group {
+                    if findInPageManager.isVisible {
+                        VStack {
+                            FindBarView(
+                                manager: findInPageManager,
+                                onNext: { findInPageManager.findNext(webView: tabManager.currentTab?.webView.webView) },
+                                onPrevious: { findInPageManager.findPrevious(webView: tabManager.currentTab?.webView.webView) },
+                                onClose: { findInPageManager.stopFinding(webView: tabManager.currentTab?.webView.webView) }
+                            )
+                            Spacer()
+                        }
+                        .padding(.top, 50)
+                        .padding(.trailing, 20)
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                    }
+                }
+            )
+            .onChange(of: findInPageManager.searchText) { newValue in
+                 findInPageManager.find(newValue, webView: tabManager.currentTab?.webView.webView)
+            }
             .overlay(
                 TabSearchOverlay(
                     tabManager: tabManager,
@@ -73,6 +96,7 @@ public struct BrowserView: View {
                 }
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity) // Ensure full window coverage for overlays
     }
     
     // MARK: - Main Content Area
@@ -90,6 +114,12 @@ public struct BrowserView: View {
             // Show Settings or Home Page or WebView
             if let currentTab = tabManager.currentTab, currentTab.url == "swiftbrowser://settings" {
                 SettingsView(tabManager: tabManager)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if let currentTab = tabManager.currentTab, currentTab.url == "swiftbrowser://history" {
+                HistoryView(tabManager: tabManager)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if let currentTab = tabManager.currentTab, currentTab.url == "swiftbrowser://shortcuts" {
+                ShortcutsView(tabManager: tabManager)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if let currentTab = tabManager.currentTab, currentTab.url.isEmpty {
                 HomePage(onSearch: { query in
@@ -114,9 +144,10 @@ public struct BrowserView: View {
                 Spacer()
                 
                 VStack(alignment: .trailing, spacing: 0) {
-                    Color.clear.frame(height: 50)
+                    Color.clear.frame(height: 44) // Matches Toolbar Height
                     
                     ControlCenterMenuView(isExpanded: $isMenuExpanded, tabManager: tabManager)
+                        .frame(width: 260)
                         .transition(.move(edge: .trailing).combined(with: .opacity))
                     
                     Spacer()
@@ -190,6 +221,14 @@ public struct BrowserView: View {
                     }
                 }
             }.keyboardShortcut("k", modifiers: .command)
+            Button("") {
+                withAnimation {
+                    findInPageManager.isVisible.toggle()
+                    if !findInPageManager.isVisible {
+                         findInPageManager.stopFinding(webView: tabManager.currentTab?.webView.webView)
+                    }
+                }
+            }.keyboardShortcut("f", modifiers: .command)
         }
         .opacity(0)
     }

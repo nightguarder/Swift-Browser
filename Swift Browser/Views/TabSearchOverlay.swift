@@ -67,9 +67,29 @@ public struct TabSearchOverlay: View {
                             tabSearchText = ""
                         }
                     }
+                    .onKeyDown { event in
+                        if event.keyCode == 53 {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                isTabSearchVisible = false
+                                tabSearchText = ""
+                            }
+                            return true
+                        }
+                        return false
+                    }
                 
                 // Tab Search Panel
                 tabSearchPanel
+                    .onKeyDown { event in
+                        if event.keyCode == 53 {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                isTabSearchVisible = false
+                                tabSearchText = ""
+                            }
+                            return true
+                        }
+                        return false
+                    }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .zIndex(100)
@@ -224,10 +244,9 @@ public struct TabSearchOverlay: View {
         if tabSearchText.isEmpty {
             return tabManager.tabs
         }
+        let query = tabSearchText.lowercased()
         return tabManager.tabs.filter { tab in
-            let titleMatch = tab.title.lowercased().contains(tabSearchText.lowercased())
-            let urlMatch = tab.url.lowercased().contains(tabSearchText.lowercased())
-            return titleMatch || urlMatch
+            tab.title.lowercased().contains(query) || tab.url.lowercased().contains(query)
         }
     }
 }
