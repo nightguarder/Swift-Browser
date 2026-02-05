@@ -95,9 +95,9 @@ public struct SettingsView: View {
                             }
                              .pickerStyle(.menu)
                              .frame(width: 140)
-                             .onChange(of: darkModePreference) { _ in
-                                 tabManager.updateDarkMode()
-                             }
+                              .onChange(of: darkModePreference) { _, _ in
+                                  tabManager.updateDarkMode()
+                              }
                         }
                         .padding(12)
                         .background(Color.indigo.opacity(0.05))
@@ -117,7 +117,7 @@ public struct SettingsView: View {
                             description: "Enable Web Inspector and debug tools",
                             isOn: $developerModeEnabled
                         )
-                        .onChange(of: developerModeEnabled) { newValue in
+                        .onChange(of: developerModeEnabled) { _, newValue in
                             tabManager.updateDeveloperMode(enabled: newValue)
                         }
                         

@@ -191,7 +191,7 @@ public struct TabSearchOverlay: View {
                 }
             }
             .frame(maxHeight: 300)
-            .onChange(of: selectedSearchIndex) { newIndex in
+            .onChange(of: selectedSearchIndex) { _, newIndex in
                 let filtered = filteredTabs
                 if newIndex < filtered.count {
                     withAnimation {
