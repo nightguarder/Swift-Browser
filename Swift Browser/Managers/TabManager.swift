@@ -75,6 +75,8 @@ public final class TabManager: ObservableObject {
             .store(in: &cancellables)
     }
 
+    // Duplicate requests are now handled via direct closures from SidebarView and keyboard shortcuts.
+
     public func addTab() {
         let newTab = BrowserTab(title: "Home", url: "", webView: nil)
         
@@ -92,24 +94,47 @@ public final class TabManager: ObservableObject {
     }
 
     public func closeTab(_ tab: BrowserTab) {
-        let wasCurrent = currentTab?.id == tab.id
+        let closingId = tab.id
+        let wasCurrent = currentTab?.id == closingId
 
         // Proactively tear down WebKit resources before releasing the tab.
         tab.webView?.teardown()
         tab.webView = nil
-        
-        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
-            tabs.removeAll { $0.id == tab.id }
-            
-            if wasCurrent {
-                if let prevId = previousTabId, let prevTab = tabs.first(where: { $0.id == prevId }) {
-                    switchToTab(prevTab)
-                    previousTabId = nil // Clear it after returning
+
+        if previousTabId == closingId {
+            previousTabId = nil
+        }
+
+        var nextTab: BrowserTab?
+        if wasCurrent {
+            if let prevId = previousTabId, let prevTab = tabs.first(where: { $0.id == prevId }), prevTab.id != closingId {
+                nextTab = prevTab
+            } else if let idx = tabs.firstIndex(where: { $0.id == closingId }) {
+                if idx > 0 {
+                    nextTab = tabs[idx - 1]
+                } else if idx + 1 < tabs.count {
+                    nextTab = tabs[idx + 1]
                 } else {
-                    currentTab = tabs.last
-                    addressBarText = currentTab?.url ?? ""
+                    nextTab = nil
                 }
+            } else {
+                nextTab = tabs.last(where: { $0.id != closingId })
             }
+        }
+
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+            tabs.removeAll { $0.id == closingId }
+
+            if wasCurrent {
+                currentTab = nextTab
+                addressBarText = nextTab?.url ?? ""
+                previousTabId = nil
+            }
+        }
+
+        if let currentTab {
+            currentTab.lastUsedAt = Date()
+            restoreTabIfNeeded(currentTab)
         }
 
         discardNonWebTabs()

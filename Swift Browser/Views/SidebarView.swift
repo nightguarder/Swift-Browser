@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import Foundation
 
 public struct SidebarView: View {
     @ObservedObject var tabManager: TabManager
@@ -89,21 +90,27 @@ public struct SidebarView: View {
                     .padding(.bottom, 8)
 
                 ScrollView(.vertical, showsIndicators: false) {
-                    VStack(spacing: 4) {
+                    LazyVStack(spacing: 4) {
                         if tabSearchText.isEmpty {
                             ForEach(tabManager.tabs) { tab in
-                                SidebarTabButton(
-                                    tab: tab,
-                                    isCurrent: tabManager.currentTab?.id == tab.id,
-                                    isSidebarHovered: isSidebarHovered,
-                                    hoveredTabId: $hoveredTab,
-                                    onClose: {
-                                        withAnimation { tabManager.closeTab(tab) }
-                                    },
-                                    onSelect: {
-                                        tabManager.switchToTab(tab)
-                                    }
-                                )
+                                  SidebarTabButton(
+                                      tab: tab,
+                                      isCurrent: tabManager.currentTab?.id == tab.id,
+                                      isSidebarHovered: isSidebarHovered,
+                                      hoveredTabId: $hoveredTab,
+                                      onClose: {
+                                          if hoveredTab == tab.id {
+                                              hoveredTab = nil
+                                          }
+                                          tabManager.closeTab(tab)
+                                      },
+                                      onSelect: {
+                                          tabManager.switchToTab(tab)
+                                      },
+                                      onDuplicate: {
+                                         tabManager.duplicate(tab)
+                                     }
+                                 )
                             }
                         } else {
                             let query = tabSearchText.lowercased()
@@ -111,18 +118,24 @@ public struct SidebarView: View {
                                 $0.title.lowercased().contains(query) || $0.url.lowercased().contains(query)
                             }
                             ForEach(filteredTabs) { tab in
-                                SidebarTabButton(
-                                    tab: tab,
-                                    isCurrent: tabManager.currentTab?.id == tab.id,
-                                    isSidebarHovered: isSidebarHovered,
-                                    hoveredTabId: $hoveredTab,
-                                    onClose: {
-                                        withAnimation { tabManager.closeTab(tab) }
-                                    },
-                                    onSelect: {
-                                        tabManager.switchToTab(tab)
-                                    }
-                                )
+                                  SidebarTabButton(
+                                      tab: tab,
+                                      isCurrent: tabManager.currentTab?.id == tab.id,
+                                      isSidebarHovered: isSidebarHovered,
+                                      hoveredTabId: $hoveredTab,
+                                      onClose: {
+                                          if hoveredTab == tab.id {
+                                              hoveredTab = nil
+                                          }
+                                          tabManager.closeTab(tab)
+                                      },
+                                      onSelect: {
+                                          tabManager.switchToTab(tab)
+                                      },
+                                      onDuplicate: {
+                                         tabManager.duplicate(tab)
+                                     }
+                                 )
                             }
                         }
                     }
@@ -172,31 +185,25 @@ public struct SidebarTabButton: View {
     @Binding var hoveredTabId: UUID?
     var onClose: () -> Void
     var onSelect: () -> Void
+    var onDuplicate: () -> Void
     
-    public init(tab: BrowserTab, isCurrent: Bool, isSidebarHovered: Bool, hoveredTabId: Binding<UUID?>, onClose: @escaping () -> Void, onSelect: @escaping () -> Void) {
+    public init(tab: BrowserTab, isCurrent: Bool, isSidebarHovered: Bool, hoveredTabId: Binding<UUID?>, onClose: @escaping () -> Void, onSelect: @escaping () -> Void, onDuplicate: @escaping () -> Void) {
         self.tab = tab
         self.isCurrent = isCurrent
         self.isSidebarHovered = isSidebarHovered
         self._hoveredTabId = hoveredTabId
         self.onClose = onClose
         self.onSelect = onSelect
+        self.onDuplicate = onDuplicate
     }
     
     public var body: some View {
         HStack(spacing: 8) {
-            ZStack {
-                if isCurrent {
-                    Circle()
-                        .fill(Color.accentColor)
-                        .frame(width: 6, height: 6)
-                } else {
-                    Circle()
-                        .fill(Color.secondary.opacity(0.3))
-                        .frame(width: 6, height: 6)
-                }
-            }
-            .frame(width: 16, height: 16, alignment: .center)
-            
+            TabFaviconView(urlString: tab.url, title: tab.title)
+                .frame(width: 18, height: 18)
+                .padding(.leading, 2)
+                .padding(.trailing, 2)
+
             if isSidebarHovered {
                 Text(tab.title.isEmpty ? "New Tab" : tab.title)
                     .lineLimit(1)
@@ -226,8 +233,66 @@ public struct SidebarTabButton: View {
         .cornerRadius(8)
         .contentShape(Rectangle())
         .onTapGesture(perform: onSelect)
+        .contextMenu {
+            Button("Duplicate Tab", action: onDuplicate)
+            Button("Close Tab", action: onClose)
+        }
         .onHover { hovering in
             hoveredTabId = hovering ? tab.id : nil
+        }
+    }
+}
+
+private struct TabFaviconView: View {
+    let urlString: String
+    let title: String
+
+    var body: some View {
+        if urlString.isEmpty {
+            fallback(systemName: "house")
+        } else if urlString == "swiftbrowser://settings" {
+            fallback(systemName: "gearshape")
+        } else if urlString == "swiftbrowser://history" {
+            fallback(systemName: "clock")
+        } else if urlString == "swiftbrowser://shortcuts" {
+            fallback(systemName: "keyboard")
+        } else if urlString.hasPrefix("swiftbrowser://") {
+            fallback(systemName: "doc")
+        } else if let url = URL(string: urlString), let host = url.host {
+            let scheme = url.scheme ?? "https"
+            let favicon = URL(string: "\(scheme)://\(host)/favicon.ico")
+            faviconView(url: favicon)
+        } else {
+            fallback(systemName: "globe")
+        }
+    }
+
+    @ViewBuilder
+    private func faviconView(url: URL?) -> some View {
+        if #available(macOS 12.0, *), let url {
+            AsyncImage(url: url, transaction: Transaction(animation: .none)) { phase in
+                switch phase {
+                case .success(let image):
+                    image
+                        .resizable()
+                        .scaledToFit()
+                        .clipShape(RoundedRectangle(cornerRadius: 3))
+                default:
+                    fallback(systemName: "globe")
+                }
+            }
+        } else {
+            fallback(systemName: "globe")
+        }
+    }
+
+    private func fallback(systemName: String) -> some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 4)
+                .fill(Color.primary.opacity(0.06))
+            Image(systemName: systemName)
+                .font(.system(size: 11, weight: .regular))
+                .foregroundColor(.secondary)
         }
     }
 }

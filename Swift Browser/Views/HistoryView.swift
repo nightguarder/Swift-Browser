@@ -139,8 +139,8 @@ struct HistoryView: View {
                                             searchText: searchText,
                                             isSelected: selectedItemID == item.id
                                         ) {
-                                            guard let webView = tabManager.currentTab?.webView else { return }
-                                            webView.load(item.url.absoluteString)
+                                            tabManager.addressBarText = item.url.absoluteString
+                                            tabManager.loadCurrent()
                                         }
                                         .id(item.id)
                                         .contextMenu {
@@ -152,8 +152,8 @@ struct HistoryView: View {
                                             }
                                             
                                             Button {
-                                                guard let webView = tabManager.currentTab?.webView else { return }
-                                                webView.load(item.url.absoluteString)
+                                                tabManager.addressBarText = item.url.absoluteString
+                                                tabManager.loadCurrent()
                                             } label: {
                                                 Label("Open", systemImage: "arrow.right")
                                             }
@@ -215,8 +215,8 @@ struct HistoryView: View {
     private func openSelected() {
         guard let id = selectedItemID,
               let item = flatItems.first(where: { $0.item.id == id }) else { return }
-        guard let webView = tabManager.currentTab?.webView else { return }
-        webView.load(item.item.url.absoluteString)
+        tabManager.addressBarText = item.item.url.absoluteString
+        tabManager.loadCurrent()
     }
     
     private func copySelectedURL() {
