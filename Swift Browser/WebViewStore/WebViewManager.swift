@@ -94,9 +94,17 @@ public final class WebViewManager: NSObject, ObservableObject, WKNavigationDeleg
         // Use WeakScriptMessageHandler to avoid retain cycle
         webView.configuration.userContentController.add(WeakScriptMessageHandler(self), name: "logger")
         
-        // Enable Web Inspector for debugging
+        // Enable Web Inspector for debugging (if enabled in settings)
+        let devMode = UserDefaults.standard.bool(forKey: "developerModeEnabled")
+        #if os(macOS)
+        if devMode {
+            // Enable context menu "Inspect Element" and Web Inspector on macOS
+            webView.configuration.preferences.setValue(true, forKey: "developerExtrasEnabled")
+        }
+        #endif
         if #available(macOS 13.3, iOS 16.4, *) {
-            webView.isInspectable = true
+            // iOS/macOS 13.3+: enable remote inspection
+            webView.isInspectable = devMode
         }
         
         applyContentBlockerIfNeeded()
@@ -104,43 +112,32 @@ public final class WebViewManager: NSObject, ObservableObject, WKNavigationDeleg
     }
 
     private func setupObservers() {
+        let mainQueue = DispatchQueue.main
+        
         webView.publisher(for: \.estimatedProgress)
-            .receive(on: DispatchQueue.main)
+            .receive(on: mainQueue)
             .sink { [weak self] value in
                 self?.progress = value
             }
             .store(in: &cancellables)
 
-        webView.publisher(for: \.title)
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] value in
-                self?.pageTitle = value
-            }
-            .store(in: &cancellables)
-
-        webView.publisher(for: \.url)
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] value in
-                self?.currentURL = value
-            }
-            .store(in: &cancellables)
-
-        webView.publisher(for: \.canGoBack)
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] value in
-                self?.canGoBack = value
-            }
-            .store(in: &cancellables)
-
-        webView.publisher(for: \.canGoForward)
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] value in
-                self?.canGoForward = value
-            }
-            .store(in: &cancellables)
+        Publishers.CombineLatest4(
+            webView.publisher(for: \.title),
+            webView.publisher(for: \.url),
+            webView.publisher(for: \.canGoBack),
+            webView.publisher(for: \.canGoForward)
+        )
+        .receive(on: mainQueue)
+        .sink { [weak self] title, url, canGoBack, canGoForward in
+            self?.pageTitle = title
+            self?.currentURL = url
+            self?.canGoBack = canGoBack
+            self?.canGoForward = canGoForward
+        }
+        .store(in: &cancellables)
 
         webView.publisher(for: \.isLoading)
-            .receive(on: DispatchQueue.main)
+            .receive(on: mainQueue)
             .sink { [weak self] loading in
                 self?.isLoading = loading
                 if !loading {
@@ -227,6 +224,19 @@ public final class WebViewManager: NSObject, ObservableObject, WKNavigationDeleg
     public func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
         print("DEBUG: WebView didFailProvisionalNavigation: \(error.localizedDescription)")
     }
+    
+    public func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        // Record history
+        if let url = webView.url {
+            // We use a slight delay or just dispatch to main to ensure title is ready?
+            // WKWebView.title might be updated slightly after didFinish.
+            // But let's try grabbing it now.
+            HistoryManager.shared.addVisit(url: url, title: webView.title)
+        }
+        
+        // Re-apply dark mode if needed (sometimes reliable on finish)
+        applyDarkModeIfNeeded()
+    }
 
     // Content Blocker
     private func applyContentBlockerIfNeeded() {
@@ -253,19 +263,25 @@ public final class WebViewManager: NSObject, ObservableObject, WKNavigationDeleg
 
     // Dark Mode
     private func applyDarkModeIfNeeded() {
-        let isEnabled = UserDefaults.standard.bool(forKey: "darkModeEnabled")
-        if isEnabled {
-            DarkModeManager.shared.applyDarkMode(to: webView.configuration)
+        DarkModeManager.shared.applyDarkMode(to: webView)
+    }
+    
+    public func updateDarkMode() {
+        if DarkModeManager.shared.isDarkModeEnabled {
+            DarkModeManager.shared.applyDarkMode(to: webView)
+        } else {
+            DarkModeManager.shared.removeDarkMode(from: webView)
         }
     }
     
-    public func updateDarkMode(enabled: Bool) {
-        if enabled {
-            DarkModeManager.shared.applyDarkMode(to: webView.configuration)
-        } else {
-            DarkModeManager.shared.removeDarkMode(from: webView.configuration)
+    // Developer Mode
+    public func updateDeveloperMode(enabled: Bool) {
+        #if os(macOS)
+        webView.configuration.preferences.setValue(enabled, forKey: "developerExtrasEnabled")
+        #endif
+        if #available(macOS 13.3, iOS 16.4, *) {
+            webView.isInspectable = enabled
         }
-        UserDefaults.standard.set(enabled, forKey: "darkModeEnabled")
     }
 
     // WKScriptMessageHandler

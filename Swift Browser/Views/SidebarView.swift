@@ -25,22 +25,19 @@ public struct SidebarView: View {
     
     public var body: some View {
         ZStack(alignment: .leading) {
-            // Background visual material
             Rectangle()
                 .fill(.ultraThinMaterial)
             
-            // Sidebar Content
             VStack(spacing: 0) {
-                // User Name Display
                 HStack(spacing: isSidebarHovered ? 8 : 0) {
                     Image(systemName: "person.circle")
-                        .font(.system(size: 14, weight: .medium))
+                        .font(AppFont.subtitle)
                         .frame(width: 36, height: 36)
                         .foregroundColor(.secondary)
 
                     if isSidebarHovered {
                         Text("\(userName)'s Space")
-                            .font(.system(size: 13, weight: .medium))
+                            .font(AppFont.subtitle)
                             .foregroundColor(.primary)
                             .transition(.opacity.combined(with: .move(edge: .leading)))
                             .lineLimit(1)
@@ -53,10 +50,9 @@ public struct SidebarView: View {
                 .padding(.top, 8)
                 .padding(.bottom, 4)
 
-                // Persistent Tab Search Bar in Sidebar
                 HStack(spacing: isSidebarHovered ? 8 : 0) {
                     Image(systemName: "magnifyingglass")
-                        .font(.system(size: 14))
+                        .font(AppFont.subtitle)
                         .frame(width: 36, height: 36)
                         .foregroundColor(.secondary)
                     
@@ -68,7 +64,7 @@ public struct SidebarView: View {
                         Spacer()
                         
                         Text("⌘K")
-                            .font(.system(size: 10, weight: .medium))
+                            .font(AppFont.keyboardShortcut)
                             .foregroundColor(.secondary)
                             .padding(.horizontal, 4)
                             .padding(.vertical, 2)
@@ -92,26 +88,42 @@ public struct SidebarView: View {
                     .padding(.horizontal, 8)
                     .padding(.bottom, 8)
 
-                // Tab List
                 ScrollView(.vertical, showsIndicators: false) {
                     VStack(spacing: 4) {
-                        let filteredTabs = tabSearchText.isEmpty ? tabManager.tabs : tabManager.tabs.filter {
-                            $0.title.lowercased().contains(tabSearchText.lowercased()) ||
-                            $0.url.lowercased().contains(tabSearchText.lowercased())
-                        }
-                        ForEach(filteredTabs) { tab in
-                            SidebarTabButton(
-                                tab: tab,
-                                isCurrent: tabManager.currentTab?.id == tab.id,
-                                isSidebarHovered: isSidebarHovered,
-                                hoveredTabId: $hoveredTab,
-                                onClose: {
-                                    withAnimation { tabManager.closeTab(tab) }
-                                },
-                                onSelect: {
-                                    tabManager.switchToTab(tab)
-                                }
-                            )
+                        if tabSearchText.isEmpty {
+                            ForEach(tabManager.tabs) { tab in
+                                SidebarTabButton(
+                                    tab: tab,
+                                    isCurrent: tabManager.currentTab?.id == tab.id,
+                                    isSidebarHovered: isSidebarHovered,
+                                    hoveredTabId: $hoveredTab,
+                                    onClose: {
+                                        withAnimation { tabManager.closeTab(tab) }
+                                    },
+                                    onSelect: {
+                                        tabManager.switchToTab(tab)
+                                    }
+                                )
+                            }
+                        } else {
+                            let query = tabSearchText.lowercased()
+                            let filteredTabs = tabManager.tabs.filter {
+                                $0.title.lowercased().contains(query) || $0.url.lowercased().contains(query)
+                            }
+                            ForEach(filteredTabs) { tab in
+                                SidebarTabButton(
+                                    tab: tab,
+                                    isCurrent: tabManager.currentTab?.id == tab.id,
+                                    isSidebarHovered: isSidebarHovered,
+                                    hoveredTabId: $hoveredTab,
+                                    onClose: {
+                                        withAnimation { tabManager.closeTab(tab) }
+                                    },
+                                    onSelect: {
+                                        tabManager.switchToTab(tab)
+                                    }
+                                )
+                            }
                         }
                     }
                     .padding(.horizontal, 6)
@@ -120,16 +132,15 @@ public struct SidebarView: View {
                 
                 Spacer()
                 
-                // New Tab Button
                 Button(action: { tabManager.addTab() }) {
                     HStack(spacing: isSidebarHovered ? 8 : 0) {
                         Image(systemName: "plus")
-                            .font(.system(size: 14, weight: .medium))
+                            .font(AppFont.subtitle)
                             .frame(width: 36, height: 36)
                         
                         if isSidebarHovered {
                             Text("New Tab")
-                                .font(.system(size: 13))
+                                .font(AppFont.caption)
                                 .transition(.opacity.combined(with: .move(edge: .leading)))
                                 .lineLimit(1)
                         }
@@ -142,7 +153,7 @@ public struct SidebarView: View {
                 .padding(8)
             }
         }
-        .frame(width: isSidebarHovered ? 200 : 50)
+        .frame(width: isSidebarHovered ? AppSpacing.sidebarWidthExpanded : AppSpacing.sidebarWidthCollapsed)
         .contentShape(Rectangle())
         .onHover { hovering in
             withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
@@ -173,7 +184,6 @@ public struct SidebarTabButton: View {
     
     public var body: some View {
         HStack(spacing: 8) {
-            // Favicon / Indicator
             ZStack {
                 if isCurrent {
                     Circle()
@@ -187,20 +197,18 @@ public struct SidebarTabButton: View {
             }
             .frame(width: 16, height: 16, alignment: .center)
             
-            // Title (Visible only when expanded)
             if isSidebarHovered {
                 Text(tab.title.isEmpty ? "New Tab" : tab.title)
                     .lineLimit(1)
-                    .font(.system(size: 13))
+                    .font(AppFont.caption)
                     .foregroundColor(isCurrent ? .primary : .secondary)
                 
                 Spacer()
                 
-                // Close Button
                 if isCurrent || hoveredTabId == tab.id {
                     Button(action: onClose) {
                         Image(systemName: "xmark")
-                            .font(.system(size: 10, weight: .bold))
+                            .font(AppFont.keyboardShortcut)
                             .foregroundColor(.secondary)
                     }
                     .buttonStyle(.plain)
@@ -216,7 +224,7 @@ public struct SidebarTabButton: View {
             : (hoveredTabId == tab.id ? Color.primary.opacity(0.05) : Color.clear)
         )
         .cornerRadius(8)
-        .contentShape(Rectangle()) // Make entire area tappable
+        .contentShape(Rectangle())
         .onTapGesture(perform: onSelect)
         .onHover { hovering in
             hoveredTabId = hovering ? tab.id : nil

@@ -23,9 +23,10 @@ public struct TopToolbar: View {
     public var body: some View {
         HStack(spacing: 12) {
             // Navigation Controls
-            HStack(spacing: 6) {
+            HStack(spacing: 8) {
                 Button(action: { tabManager.currentTab?.webView.goBack() }) {
                     Image(systemName: "chevron.left")
+                        .font(AppFont.icon)
                 }
                 .buttonStyle(.plain)
                 .disabled(!(tabManager.currentTab?.webView.canGoBack ?? false))
@@ -33,6 +34,7 @@ public struct TopToolbar: View {
                 
                 Button(action: { tabManager.currentTab?.webView.goForward() }) {
                     Image(systemName: "chevron.right")
+                        .font(AppFont.icon)
                 }
                 .buttonStyle(.plain)
                 .disabled(!(tabManager.currentTab?.webView.canGoForward ?? false))
@@ -40,16 +42,17 @@ public struct TopToolbar: View {
                 
                 Button(action: { tabManager.currentTab?.webView.reload() }) {
                     Image(systemName: "arrow.clockwise")
+                        .font(AppFont.smallIcon)
                 }
                 .buttonStyle(.plain)
             }
-            .padding(.leading, 10)
-
+            .padding(.leading, 12)
+            
             // Address Bar
-            HStack(spacing: 8) {
+            HStack(spacing: 10) {
                 Image(systemName: "magnifyingglass")
                     .foregroundColor(.secondary)
-                    .font(.caption)
+                    .font(AppFont.subtitle)
                 
                 TextField("Search or URL",
                           text: $tabManager.addressBarText)
@@ -59,15 +62,14 @@ public struct TopToolbar: View {
                     .textFieldStyle(.plain)
                     .focused($isAddressBarFocused)
                     .disableAutocorrection(true)
+                    .font(AppFont.searchField)
                 
                 // Privacy Shield Indicator
                 if let currentTab = tabManager.currentTab, !currentTab.webView.isLoading {
-                    Button(action: {
-                        // Action for privacy shield details
-                    }) {
+                    Button(action: {}) {
                         Image(systemName: "shield.fill")
                             .foregroundColor(.blue)
-                            .font(.system(size: 12))
+                            .font(AppFont.subtitle)
                     }
                     .buttonStyle(.plain)
                     .help("Privacy Shield Active")
@@ -98,7 +100,7 @@ public struct TopToolbar: View {
                         }
                     } label: {
                         Image(systemName: isBookmarked ? "bookmark.fill" : "bookmark")
-                            .font(.system(size: 12, weight: .medium))
+                            .font(AppFont.subtitle)
                             .foregroundColor(isBookmarked ? .accentColor : .secondary)
                     }
                     .buttonStyle(.plain)
@@ -116,19 +118,19 @@ public struct TopToolbar: View {
                 .opacity(0)
                 .frame(width: 0, height: 0)
             }
-            .padding(6)
+            .padding(10)
             .background(Color.primary.opacity(0.05))
-            .cornerRadius(8)
+            .cornerRadius(10)
             .overlay(
-                RoundedRectangle(cornerRadius: 8)
+                RoundedRectangle(cornerRadius: 10)
                     .stroke(Color.primary.opacity(0.1), lineWidth: 0.5)
                 )
 
             // Control Center Menu Button
             ControlCenterMenuButton(isExpanded: $isMenuExpanded)
-                .padding(.trailing, 10)
+                .padding(.trailing, 12)
         }
-        .padding(.vertical, 8)
-        .frame(height: 44)
+        .padding(.vertical, 10)
+        .frame(height: AppSpacing.toolbarHeight)
     }
 }
