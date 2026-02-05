@@ -22,12 +22,10 @@ public final class WebViewManager: NSObject, ObservableObject, WKNavigationDeleg
 
     private var cancellables = Set<AnyCancellable>()
 
-    // Shared process pool for memory efficiency across all tabs
-    private static let sharedProcessPool = WKProcessPool()
+    private var isTornDown = false
 
     public override init() {
         let config = WKWebViewConfiguration()
-        config.processPool = Self.sharedProcessPool
         
         // Disable media autoplay and require user interaction
         config.mediaTypesRequiringUserActionForPlayback = .all
@@ -149,15 +147,51 @@ public final class WebViewManager: NSObject, ObservableObject, WKNavigationDeleg
 
     deinit {
         print("DEBUG: WebViewManager deinit")
+        let webView = webView
+        if Thread.isMainThread {
+            Self.teardownWebView(webView, cancellables: &cancellables, isTornDown: &isTornDown)
+        } else {
+            DispatchQueue.main.async {
+                var empty = Set<AnyCancellable>()
+                var tornDown = false
+                Self.teardownWebView(webView, cancellables: &empty, isTornDown: &tornDown)
+            }
+        }
+    }
+
+    public func teardown() {
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async { [weak self] in
+                self?.teardown()
+            }
+            return
+        }
+
+        Self.teardownWebView(webView, cancellables: &cancellables, isTornDown: &isTornDown)
+    }
+
+    private static func teardownWebView(_ webView: WKWebView, cancellables: inout Set<AnyCancellable>, isTornDown: inout Bool) {
+        guard !isTornDown else { return }
+        isTornDown = true
+
+        cancellables.removeAll()
+
         webView.stopLoading()
         webView.navigationDelegate = nil
         webView.uiDelegate = nil
         webView.allowsBackForwardNavigationGestures = false
-        webView.configuration.userContentController.removeScriptMessageHandler(forName: "logger")
-        webView.configuration.userContentController.removeAllUserScripts()
-        // Load blank page to detach content process
-        webView.load(URLRequest(url: URL(string: "about:blank")!))
-        cancellables.removeAll()
+
+        let ucc = webView.configuration.userContentController
+        ucc.removeScriptMessageHandler(forName: "logger")
+        ucc.removeAllUserScripts()
+        ucc.removeAllContentRuleLists()
+
+        // Detach the web content process as aggressively as possible.
+        if let blankURL = URL(string: "about:blank") {
+            webView.load(URLRequest(url: blankURL))
+        }
+
+        webView.removeFromSuperview()
     }
 
     // Load a webpage from a given string (auto-fixes if missing "https://")

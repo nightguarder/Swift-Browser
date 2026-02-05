@@ -26,7 +26,9 @@ public struct WebViewContainer: UIViewRepresentable {
         uiView.stopLoading()
         uiView.navigationDelegate = nil
         uiView.uiDelegate = nil
+        uiView.configuration.userContentController.removeScriptMessageHandler(forName: "logger")
         uiView.configuration.userContentController.removeAllUserScripts()
+        uiView.configuration.userContentController.removeAllContentRuleLists()
         uiView.removeFromSuperview()
     }
 }
@@ -48,7 +50,9 @@ public struct WebViewContainer: NSViewRepresentable {
         nsView.stopLoading()
         nsView.navigationDelegate = nil
         nsView.uiDelegate = nil
+        nsView.configuration.userContentController.removeScriptMessageHandler(forName: "logger")
         nsView.configuration.userContentController.removeAllUserScripts()
+        nsView.configuration.userContentController.removeAllContentRuleLists()
         nsView.removeFromSuperview()
     }
 }
