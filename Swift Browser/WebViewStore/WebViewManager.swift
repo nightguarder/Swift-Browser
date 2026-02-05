@@ -187,8 +187,6 @@ public final class WebViewManager: NSObject, ObservableObject, WKNavigationDeleg
 
         let ucc = webView.configuration.userContentController
         ucc.removeScriptMessageHandler(forName: "logger")
-        ucc.removeAllUserScripts()
-        ucc.removeAllContentRuleLists()
 
         // Detach the web content process as aggressively as possible.
         if let blankURL = URL(string: "about:blank") {

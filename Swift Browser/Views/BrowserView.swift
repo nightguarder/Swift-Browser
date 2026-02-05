@@ -173,27 +173,25 @@ public struct BrowserView: View {
 
     // MARK: - Content Area
     private var contentArea: some View {
-        Group {
-            if let currentTab = tabManager.currentTab {
+        ZStack {
+            ForEach(tabManager.tabs, id: \.id) { tab in
                 Group {
-                    if let webView = currentTab.webView?.webView {
+                    if let webView = tab.webView?.webView {
                         WebViewContainer(webView: webView)
-                    } else {
-                        // If a tab was discarded, TabManager restores it on selection.
-                        // This is a safe fallback in case restoration is delayed.
+                    } else if tab.id == tabManager.currentTab?.id {
+                        // If the selected tab was discarded, TabManager restores it on selection.
+                        // Show a lightweight fallback while it restores.
                         ProgressView()
                             .progressViewStyle(.circular)
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    } else {
+                        // Keep a placeholder to avoid tearing down view hierarchy for non-selected tabs
+                        Color.clear
                     }
                 }
-                .id(currentTab.id)
-                .onTapGesture {
-                    isAddressBarFocused = false
-                }
-            } else {
-                Text("No Tab Open")
-                    .foregroundColor(.secondary)
-                    .padding()
+                .id(tab.id)
+                .opacity(tab.id == tabManager.currentTab?.id ? 1 : 0)
+                .allowsHitTesting(tab.id == tabManager.currentTab?.id)
             }
         }
     }

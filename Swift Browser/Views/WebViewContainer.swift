@@ -23,12 +23,6 @@ public struct WebViewContainer: UIViewRepresentable {
     public func updateUIView(_ uiView: WKWebView, context: Context) {}
 
     public static func dismantleUIView(_ uiView: WKWebView, coordinator: ()) {
-        uiView.stopLoading()
-        uiView.navigationDelegate = nil
-        uiView.uiDelegate = nil
-        uiView.configuration.userContentController.removeScriptMessageHandler(forName: "logger")
-        uiView.configuration.userContentController.removeAllUserScripts()
-        uiView.configuration.userContentController.removeAllContentRuleLists()
         uiView.removeFromSuperview()
     }
 }
@@ -47,12 +41,8 @@ public struct WebViewContainer: NSViewRepresentable {
     public func updateNSView(_ nsView: WKWebView, context: Context) {}
 
     public static func dismantleNSView(_ nsView: WKWebView, coordinator: ()) {
-        nsView.stopLoading()
-        nsView.navigationDelegate = nil
-        nsView.uiDelegate = nil
-        nsView.configuration.userContentController.removeScriptMessageHandler(forName: "logger")
-        nsView.configuration.userContentController.removeAllUserScripts()
-        nsView.configuration.userContentController.removeAllContentRuleLists()
+        // Do not stopLoading here; switching views should not
+        // interrupt the page or sever the Web Inspector connection.
         nsView.removeFromSuperview()
     }
 }
