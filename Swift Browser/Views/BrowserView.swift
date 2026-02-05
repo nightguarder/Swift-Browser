@@ -41,12 +41,12 @@ public struct BrowserView: View {
                 Group {
                     if findInPageManager.isVisible {
                         VStack {
-                            FindBarView(
-                                manager: findInPageManager,
-                                onNext: { findInPageManager.findNext(webView: tabManager.currentTab?.webView.webView) },
-                                onPrevious: { findInPageManager.findPrevious(webView: tabManager.currentTab?.webView.webView) },
-                                onClose: { findInPageManager.stopFinding(webView: tabManager.currentTab?.webView.webView) }
-                            )
+                             FindBarView(
+                                 manager: findInPageManager,
+                                 onNext: { findInPageManager.findNext(webView: tabManager.currentTab?.webView?.webView) },
+                                 onPrevious: { findInPageManager.findPrevious(webView: tabManager.currentTab?.webView?.webView) },
+                                 onClose: { findInPageManager.stopFinding(webView: tabManager.currentTab?.webView?.webView) }
+                             )
                             Spacer()
                         }
                         .padding(.top, 50)
@@ -60,9 +60,9 @@ public struct BrowserView: View {
                 findInPageManager.$searchText
                     .removeDuplicates()
                     .debounce(for: .milliseconds(150), scheduler: RunLoop.main)
-            ) { value in
-                findInPageManager.find(value, webView: tabManager.currentTab?.webView.webView)
-            }
+             ) { value in
+                findInPageManager.find(value, webView: tabManager.currentTab?.webView?.webView)
+             }
             .overlay(
                 TabSearchOverlay(
                     tabManager: tabManager,
@@ -175,11 +175,21 @@ public struct BrowserView: View {
     private var contentArea: some View {
         Group {
             if let currentTab = tabManager.currentTab {
-                WebViewContainer(webView: currentTab.webView.webView)
-                    .id(currentTab.id)
-                    .onTapGesture {
-                        isAddressBarFocused = false
+                Group {
+                    if let webView = currentTab.webView?.webView {
+                        WebViewContainer(webView: webView)
+                    } else {
+                        // If a tab was discarded, TabManager restores it on selection.
+                        // This is a safe fallback in case restoration is delayed.
+                        ProgressView()
+                            .progressViewStyle(.circular)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
                     }
+                }
+                .id(currentTab.id)
+                .onTapGesture {
+                    isAddressBarFocused = false
+                }
             } else {
                 Text("No Tab Open")
                     .foregroundColor(.secondary)
@@ -194,7 +204,7 @@ public struct BrowserView: View {
             Button("") { tabManager.addTab() }.keyboardShortcut("t", modifiers: .command)
             Button("") { if let tab = tabManager.currentTab { tabManager.closeTab(tab) } }.keyboardShortcut("w", modifiers: .command)
             Button("") { isAddressBarFocused = true }.keyboardShortcut("l", modifiers: .command)
-            Button("") { tabManager.currentTab?.webView.reload() }.keyboardShortcut("r", modifiers: .command)
+            Button("") { tabManager.currentTab?.webView?.reload() }.keyboardShortcut("r", modifiers: .command)
             Button("") { tabManager.nextTab() }.keyboardShortcut("]", modifiers: [.command, .shift])
             Button("") { tabManager.previousTab() }.keyboardShortcut("[", modifiers: [.command, .shift])
             Button("") { tabManager.nextTab() }.keyboardShortcut(.tab, modifiers: .control)
@@ -208,9 +218,11 @@ public struct BrowserView: View {
             Button("") { tabManager.switchToIndex(6) }.keyboardShortcut("7", modifiers: .command)
             Button("") { tabManager.switchToIndex(7) }.keyboardShortcut("8", modifiers: .command)
             Button("") { tabManager.switchToIndex(8) }.keyboardShortcut("9", modifiers: .command)
-            Button("") { tabManager.currentTab?.webView.zoomIn() }.keyboardShortcut("=", modifiers: .command)
-            Button("") { tabManager.currentTab?.webView.zoomOut() }.keyboardShortcut("-", modifiers: .command)
-            Button("") { tabManager.currentTab?.webView.resetZoom() }.keyboardShortcut("0", modifiers: .command)
+            Button("") { tabManager.currentTab?.webView?.zoomIn() }.keyboardShortcut("=", modifiers: .command)
+            Button("") { tabManager.currentTab?.webView?.zoomOut() }.keyboardShortcut("-", modifiers: .command)
+            Button("") { tabManager.currentTab?.webView?.resetZoom() }.keyboardShortcut("0", modifiers: .command)
+            // Duplicate current tab
+            Button("") { tabManager.duplicateCurrentTab() }.keyboardShortcut("d", modifiers: .command)
             Button("") {
                 if let url = tabManager.currentTab?.url {
                     NSPasteboard.general.clearContents()
@@ -229,10 +241,10 @@ public struct BrowserView: View {
                 withAnimation {
                     findInPageManager.isVisible.toggle()
                     if !findInPageManager.isVisible {
-                         findInPageManager.stopFinding(webView: tabManager.currentTab?.webView.webView)
-                    }
-                }
-            }.keyboardShortcut("f", modifiers: .command)
+                         findInPageManager.stopFinding(webView: tabManager.currentTab?.webView?.webView)
+                     }
+                 }
+             }.keyboardShortcut("f", modifiers: .command)
         }
         .opacity(0)
     }

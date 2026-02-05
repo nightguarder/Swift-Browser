@@ -17,15 +17,30 @@ public final class TabManager: ObservableObject {
 
     private var cancellables = Set<AnyCancellable>()
 
+    private var idleDiscardTimerCancellable: AnyCancellable?
+
+    private var tabDiscardingEnabled: Bool {
+        if UserDefaults.standard.object(forKey: "tabDiscardingEnabled") == nil {
+            return true
+        }
+        return UserDefaults.standard.bool(forKey: "tabDiscardingEnabled")
+    }
+
+    private let idleDiscardInterval: TimeInterval = 15 * 60
+    private let idleDiscardCheckInterval: TimeInterval = 60
+
     public init() {
         setupActiveTabObservation()
         addTab() // start with one tab open
+        configureIdleDiscardTimer()
     }
 
     deinit {
         for tab in tabs {
-            tab.webView.teardown()
+            tab.webView?.teardown()
         }
+        idleDiscardTimerCancellable?.cancel()
+        idleDiscardTimerCancellable = nil
         cancellables.removeAll()
     }
 
@@ -40,8 +55,17 @@ public final class TabManager: ObservableObject {
 
                 // Return the current URL or the tab's internal URL if it's an internal page.
                 // Use switchToLatest downstream so we don't keep subscriptions to background tabs.
-                return tab.webView.$currentURL
-                    .map { $0?.absoluteString ?? tab.url }
+                return tab.$webView
+                    .map { manager -> AnyPublisher<String, Never> in
+                        if let manager {
+                            return manager.$currentURL
+                                .map { $0?.absoluteString ?? tab.url }
+                                .merge(with: tab.$url)
+                                .eraseToAnyPublisher()
+                        }
+                        return tab.$url.eraseToAnyPublisher()
+                    }
+                    .switchToLatest()
                     .eraseToAnyPublisher()
             }
             .switchToLatest()
@@ -52,8 +76,7 @@ public final class TabManager: ObservableObject {
     }
 
     public func addTab() {
-        let webView = WebViewManager()
-        let newTab = BrowserTab(title: "Home", url: "", webView: webView)
+        let newTab = BrowserTab(title: "Home", url: "", webView: nil)
         
         // Track previous tab before switching
         if let current = currentTab {
@@ -64,13 +87,16 @@ public final class TabManager: ObservableObject {
             tabs.append(newTab)
             currentTab = newTab
         }
+
+        discardNonWebTabs()
     }
 
     public func closeTab(_ tab: BrowserTab) {
         let wasCurrent = currentTab?.id == tab.id
 
         // Proactively tear down WebKit resources before releasing the tab.
-        tab.webView.teardown()
+        tab.webView?.teardown()
+        tab.webView = nil
         
         withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
             tabs.removeAll { $0.id == tab.id }
@@ -85,6 +111,8 @@ public final class TabManager: ObservableObject {
                 }
             }
         }
+
+        discardNonWebTabs()
     }
 
     public func switchToTab(_ tab: BrowserTab) {
@@ -95,6 +123,11 @@ public final class TabManager: ObservableObject {
             currentTab = tab
             addressBarText = tab.url
         }
+
+        tab.lastUsedAt = Date()
+
+        restoreTabIfNeeded(tab)
+        discardNonWebTabs()
     }
 
     public func nextTab() {
@@ -114,13 +147,37 @@ public final class TabManager: ObservableObject {
         switchToTab(tabs[index])
     }
 
+    // Duplicate Tab
+    public func duplicate(_ tab: BrowserTab) {
+        let webView = WebViewManager()
+        let newTab = BrowserTab(title: tab.title, url: tab.url, webView: webView)
+        
+        // Load same content if available
+        if !tab.url.isEmpty {
+            webView.load(tab.url)
+        }
+        
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+            if let idx = tabs.firstIndex(where: { $0.id == tab.id }) {
+                tabs.insert(newTab, at: min(idx + 1, tabs.count))
+            } else {
+                tabs.append(newTab)
+            }
+            switchToTab(newTab)
+        }
+    }
+
+    public func duplicateCurrentTab() {
+        guard let current = currentTab else { return }
+        duplicate(current)
+    }
+
     public func openSettings() {
         // Check if settings tab already exists
         if let settingsTab = tabs.first(where: { $0.url == "swiftbrowser://settings" }) {
             switchToTab(settingsTab)
         } else {
-            let webView = WebViewManager()
-            let settingsTab = BrowserTab(title: "Settings", url: "swiftbrowser://settings", webView: webView)
+            let settingsTab = BrowserTab(title: "Settings", url: "swiftbrowser://settings", webView: nil)
             tabs.append(settingsTab)
             switchToTab(settingsTab)
         }
@@ -132,8 +189,7 @@ public final class TabManager: ObservableObject {
         if let historyTab = tabs.first(where: { $0.url == "swiftbrowser://history" }) {
             switchToTab(historyTab)
         } else {
-            let webView = WebViewManager()
-            let historyTab = BrowserTab(title: "History", url: "swiftbrowser://history", webView: webView)
+            let historyTab = BrowserTab(title: "History", url: "swiftbrowser://history", webView: nil)
             tabs.append(historyTab)
             switchToTab(historyTab)
         }
@@ -145,8 +201,7 @@ public final class TabManager: ObservableObject {
         if let shortcutsTab = tabs.first(where: { $0.url == "swiftbrowser://shortcuts" }) {
             switchToTab(shortcutsTab)
         } else {
-            let webView = WebViewManager()
-            let shortcutsTab = BrowserTab(title: "Shortcuts", url: "swiftbrowser://shortcuts", webView: webView)
+            let shortcutsTab = BrowserTab(title: "Shortcuts", url: "swiftbrowser://shortcuts", webView: nil)
             tabs.append(shortcutsTab)
             switchToTab(shortcutsTab)
         }
@@ -173,7 +228,8 @@ public final class TabManager: ObservableObject {
         }
         
         // Remove focus from all elements by injecting script
-        currentTab.webView.webView.evaluateJavaScript("document.activeElement.blur()") { _, _ in }
+        let webViewManager = ensureWebView(for: currentTab)
+        webViewManager.webView.evaluateJavaScript("document.activeElement.blur()") { _, _ in }
 
         // If input looks like a URL (contains a dot or starts with http)
         if input.starts(with: "http://") || input.starts(with: "https://") {
@@ -189,26 +245,144 @@ public final class TabManager: ObservableObject {
         #if DEBUG
         print("DEBUG: loadCurrent loading URL: \(input)")
         #endif
-        currentTab.webView.load(input)
+        webViewManager.load(input)
         currentTab.url = input
+
+        currentTab.lastUsedAt = Date()
+
+        discardNonWebTabs()
     }
 
     // Settings Propagation
     public func updateContentBlocker(enabled: Bool) {
         for tab in tabs {
-            tab.webView.updateContentBlocker(enabled: enabled)
+            tab.webView?.updateContentBlocker(enabled: enabled)
         }
     }
 
     public func updateDarkMode() {
         for tab in tabs {
-            tab.webView.updateDarkMode()
+            tab.webView?.updateDarkMode()
         }
     }
     
     public func updateDeveloperMode(enabled: Bool) {
         for tab in tabs {
-            tab.webView.updateDeveloperMode(enabled: enabled)
+            tab.webView?.updateDeveloperMode(enabled: enabled)
+        }
+    }
+
+    public func refreshTabDiscarding() {
+        if let tab = currentTab {
+            restoreTabIfNeeded(tab)
+        }
+        configureIdleDiscardTimer()
+        discardNonWebTabs()
+        discardIdleTabsIfNeeded()
+    }
+
+    // MARK: - Tab Discarding
+
+    private func isInternalPage(_ urlString: String) -> Bool {
+        urlString.hasPrefix("swiftbrowser://")
+    }
+
+    private func restoreTabIfNeeded(_ tab: BrowserTab) {
+        // Internal pages and empty tabs don't need a WKWebView.
+        if tab.url.isEmpty || isInternalPage(tab.url) {
+            discardTabWebView(tab)
+            return
+        }
+
+        if tab.webView == nil {
+            let manager = WebViewManager()
+            tab.webView = manager
+            manager.load(tab.url)
+        }
+    }
+
+    @discardableResult
+    private func ensureWebView(for tab: BrowserTab) -> WebViewManager {
+        if let manager = tab.webView {
+            return manager
+        }
+
+        let manager = WebViewManager()
+        tab.webView = manager
+        return manager
+    }
+
+    private func discardNonWebTabs() {
+        for tab in tabs {
+            if tab.url.isEmpty || isInternalPage(tab.url) {
+                discardTabWebView(tab)
+            }
+        }
+    }
+
+    private func discardTabWebView(_ tab: BrowserTab) {
+        tab.webView?.teardown()
+        tab.webView = nil
+    }
+
+    private func configureIdleDiscardTimer() {
+        idleDiscardTimerCancellable?.cancel()
+        idleDiscardTimerCancellable = nil
+
+        guard tabDiscardingEnabled else { return }
+
+        idleDiscardTimerCancellable = Timer
+            .publish(every: idleDiscardCheckInterval, on: .main, in: .common)
+            .autoconnect()
+            .sink { [weak self] _ in
+                guard let self else { return }
+                self.discardIdleTabsIfNeeded()
+            }
+    }
+
+    private func discardIdleTabsIfNeeded(now: Date = Date()) {
+        guard tabDiscardingEnabled else { return }
+        guard let currentID = currentTab?.id else { return }
+
+        for tab in tabs {
+            guard tab.id != currentID else { continue }
+            guard tab.webView != nil else { continue }
+            guard !tab.url.isEmpty && !isInternalPage(tab.url) else { continue }
+
+            let idle = now.timeIntervalSince(tab.lastUsedAt)
+            guard idle >= idleDiscardInterval else { continue }
+
+            guard let manager = tab.webView else { continue }
+            if manager.isLoading { continue }
+
+            if #available(macOS 12.0, *) {
+                let webView = manager.webView
+
+                // Don't discard tabs that are capturing camera/mic.
+                if webView.cameraCaptureState != .none { continue }
+                if webView.microphoneCaptureState != .none { continue }
+
+                // Don't discard tabs that are currently playing media.
+                let tabID = tab.id
+                webView.requestMediaPlaybackState { [weak self] (state: WKMediaPlaybackState) in
+                    guard let self else { return }
+                    guard let liveTab = self.tabs.first(where: { $0.id == tabID }) else { return }
+                    guard liveTab.id != self.currentTab?.id else { return }
+                    guard let liveManager = liveTab.webView else { return }
+                    if liveManager.isLoading { return }
+
+                    // Re-check idle (tab might have been used since the tick).
+                    let now2 = Date()
+                    let idle2 = now2.timeIntervalSince(liveTab.lastUsedAt)
+                    guard idle2 >= self.idleDiscardInterval else { return }
+
+                    if state == .playing { return }
+
+                    self.discardTabWebView(liveTab)
+                }
+            } else {
+                discardTabWebView(tab)
+            }
         }
     }
 }

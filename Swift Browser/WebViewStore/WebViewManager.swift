@@ -20,6 +20,7 @@ public final class WebViewManager: NSObject, ObservableObject, WKNavigationDeleg
     @Published public var currentURL: URL?
     @Published public var pageTitle: String?
 
+
     private var cancellables = Set<AnyCancellable>()
 
     private var isTornDown = false
@@ -73,6 +74,7 @@ public final class WebViewManager: NSObject, ObservableObject, WKNavigationDeleg
         """
         let script = WKUserScript(source: scriptSource, injectionTime: .atDocumentStart, forMainFrameOnly: false)
         config.userContentController.addUserScript(script)
+
         
         webView = WKWebView(frame: .zero, configuration: config)
         
@@ -326,12 +328,15 @@ public final class WebViewManager: NSObject, ObservableObject, WKNavigationDeleg
 
     // WKScriptMessageHandler
     public func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
-        guard let body = message.body as? [String: Any],
-              let type = body["type"] as? String,
-              let content = body["message"] as? String else { return }
-        
-        let logLine = "[\(type)] \(content)\n"
-        print(logLine, terminator: "")
+        if message.name == "logger" {
+            guard let body = message.body as? [String: Any],
+                  let type = body["type"] as? String,
+                  let content = body["message"] as? String else { return }
+
+            let logLine = "[\(type)] \(content)\n"
+            print(logLine, terminator: "")
+            return
+        }
     }
 }
 

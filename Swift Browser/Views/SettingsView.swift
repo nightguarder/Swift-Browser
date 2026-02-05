@@ -15,6 +15,7 @@ public struct SettingsView: View {
     @AppStorage("darkModePreference") private var darkModePreference: DarkModeManager.DarkModePreference = .system
     @AppStorage("doNotTrackEnabled") private var doNotTrackEnabled = true
     @AppStorage("developerModeEnabled") private var developerModeEnabled = false
+    @AppStorage("tabDiscardingEnabled") private var tabDiscardingEnabled = true
     
     public init(tabManager: TabManager) {
         self.tabManager = tabManager
@@ -102,6 +103,24 @@ public struct SettingsView: View {
                         .padding(12)
                         .background(Color.indigo.opacity(0.05))
                         .cornerRadius(8)
+                    }
+
+                    // Performance Section
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Performance")
+                            .font(.system(size: 16, weight: .bold))
+                            .padding(.bottom, 4)
+
+                        settingsRow(
+                            icon: "memorychip",
+                            color: .teal,
+                            title: "Discard Background Tabs",
+                            description: "Discard tabs idle for 15 minutes",
+                            isOn: $tabDiscardingEnabled
+                        )
+                        .onChange(of: tabDiscardingEnabled) { _, _ in
+                            tabManager.refreshTabDiscarding()
+                        }
                     }
                     
                     // Developer Section

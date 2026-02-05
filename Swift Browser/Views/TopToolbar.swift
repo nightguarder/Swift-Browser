@@ -24,23 +24,23 @@ public struct TopToolbar: View {
         HStack(spacing: 12) {
             // Navigation Controls
             HStack(spacing: 8) {
-                Button(action: { tabManager.currentTab?.webView.goBack() }) {
+                Button(action: { tabManager.currentTab?.webView?.goBack() }) {
                     Image(systemName: "chevron.left")
                         .font(AppFont.icon)
                 }
                 .buttonStyle(.plain)
-                .disabled(!(tabManager.currentTab?.webView.canGoBack ?? false))
-                .foregroundColor((tabManager.currentTab?.webView.canGoBack ?? false) ? .primary : .secondary.opacity(0.5))
+                .disabled(!(tabManager.currentTab?.webView?.canGoBack ?? false))
+                .foregroundColor((tabManager.currentTab?.webView?.canGoBack ?? false) ? .primary : .secondary.opacity(0.5))
                 
-                Button(action: { tabManager.currentTab?.webView.goForward() }) {
+                Button(action: { tabManager.currentTab?.webView?.goForward() }) {
                     Image(systemName: "chevron.right")
                         .font(AppFont.icon)
                 }
                 .buttonStyle(.plain)
-                .disabled(!(tabManager.currentTab?.webView.canGoForward ?? false))
-                .foregroundColor((tabManager.currentTab?.webView.canGoForward ?? false) ? .primary : .secondary.opacity(0.5))
+                .disabled(!(tabManager.currentTab?.webView?.canGoForward ?? false))
+                .foregroundColor((tabManager.currentTab?.webView?.canGoForward ?? false) ? .primary : .secondary.opacity(0.5))
                 
-                Button(action: { tabManager.currentTab?.webView.reload() }) {
+                Button(action: { tabManager.currentTab?.webView?.reload() }) {
                     Image(systemName: "arrow.clockwise")
                         .font(AppFont.smallIcon)
                 }
@@ -65,7 +65,7 @@ public struct TopToolbar: View {
                     .font(AppFont.searchField)
                 
                 // Privacy Shield Indicator
-                if let currentTab = tabManager.currentTab, !currentTab.webView.isLoading {
+                if let currentTab = tabManager.currentTab, !(currentTab.webView?.isLoading ?? false) {
                     Button(action: {}) {
                         Image(systemName: "shield.fill")
                             .foregroundColor(.blue)
