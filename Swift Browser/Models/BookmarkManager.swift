@@ -21,29 +21,28 @@ public struct Bookmark: Identifiable, Codable {
 
 public final class BookmarkManager: ObservableObject {
     @Published var bookmarks: [Bookmark] = []
-
+    
     private let key = "Bookmarks"
-
+    private var saveWorkItem: DispatchWorkItem?
+    
     init() {
         load()
     }
-
+    
     func addBookmark(title: String, url: String) {
-        // Validate inputs
         let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedURL = url.trimmingCharacters(in: .whitespacesAndNewlines)
         
         guard !trimmedTitle.isEmpty, !trimmedURL.isEmpty else { return }
         
-        // Check for duplicates (case-insensitive URL comparison)
         let normalizedURL = trimmedURL.lowercased()
         if bookmarks.contains(where: { $0.url.lowercased() == normalizedURL }) {
-            return // Already bookmarked
+            return
         }
         
         let bookmark = Bookmark(title: trimmedTitle, url: trimmedURL)
         bookmarks.append(bookmark)
-        save()
+        scheduleSave()
     }
     
     func isBookmarked(url: String) -> Bool {
@@ -53,15 +52,24 @@ public final class BookmarkManager: ObservableObject {
 
     func removeBookmark(_ bookmark: Bookmark) {
         bookmarks.removeAll { $0.id == bookmark.id }
-        save()
+        scheduleSave()
     }
-
+    
+    private func scheduleSave() {
+        saveWorkItem?.cancel()
+        let workItem = DispatchWorkItem { [weak self] in
+            self?.save()
+        }
+        saveWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2, execute: workItem)
+    }
+    
     private func save() {
         if let data = try? JSONEncoder().encode(bookmarks) {
             UserDefaults.standard.set(data, forKey: key)
         }
     }
-
+    
     private func load() {
         if let data = UserDefaults.standard.data(forKey: key),
            let saved = try? JSONDecoder().decode([Bookmark].self, from: data) {

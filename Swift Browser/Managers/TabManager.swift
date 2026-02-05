@@ -22,6 +22,10 @@ public final class TabManager: ObservableObject {
         addTab() // start with one tab open
     }
 
+    deinit {
+        cancellables.removeAll()
+    }
+
     private func setupActiveTabObservation() {
         // Observe currentTab changes and subscribe to its webView's URL
         $currentTab
@@ -35,7 +39,10 @@ public final class TabManager: ObservableObject {
                     .map { $0?.absoluteString ?? tab.url }
                     .eraseToAnyPublisher()
             }
-            .assign(to: &$addressBarText)
+            .sink { [weak self] value in
+                self?.addressBarText = value
+            }
+            .store(in: &cancellables)
     }
 
     public func addTab() {
@@ -47,21 +54,26 @@ public final class TabManager: ObservableObject {
             previousTabId = current.id
         }
         
-        tabs.append(newTab)
-        currentTab = newTab
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+            tabs.append(newTab)
+            currentTab = newTab
+        }
     }
 
     public func closeTab(_ tab: BrowserTab) {
         let wasCurrent = currentTab?.id == tab.id
-        tabs.removeAll { $0.id == tab.id }
         
-        if wasCurrent {
-            if let prevId = previousTabId, let prevTab = tabs.first(where: { $0.id == prevId }) {
-                switchToTab(prevTab)
-                previousTabId = nil // Clear it after returning
-            } else {
-                currentTab = tabs.last
-                addressBarText = currentTab?.url ?? ""
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+            tabs.removeAll { $0.id == tab.id }
+            
+            if wasCurrent {
+                if let prevId = previousTabId, let prevTab = tabs.first(where: { $0.id == prevId }) {
+                    switchToTab(prevTab)
+                    previousTabId = nil // Clear it after returning
+                } else {
+                    currentTab = tabs.last
+                    addressBarText = currentTab?.url ?? ""
+                }
             }
         }
     }
@@ -70,8 +82,10 @@ public final class TabManager: ObservableObject {
         if let current = currentTab, current.id != tab.id {
             previousTabId = current.id
         }
-        currentTab = tab
-        addressBarText = tab.url
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+            currentTab = tab
+            addressBarText = tab.url
+        }
     }
 
     public func nextTab() {
@@ -104,6 +118,32 @@ public final class TabManager: ObservableObject {
         addressBarText = "Settings"
     }
 
+    public func openHistory() {
+        // Check if history tab already exists
+        if let historyTab = tabs.first(where: { $0.url == "swiftbrowser://history" }) {
+            switchToTab(historyTab)
+        } else {
+            let webView = WebViewManager()
+            let historyTab = BrowserTab(title: "History", url: "swiftbrowser://history", webView: webView)
+            tabs.append(historyTab)
+            switchToTab(historyTab)
+        }
+        addressBarText = "History"
+    }
+    
+    public func openShortcuts() {
+        // Check if shortcuts tab already exists
+        if let shortcutsTab = tabs.first(where: { $0.url == "swiftbrowser://shortcuts" }) {
+            switchToTab(shortcutsTab)
+        } else {
+            let webView = WebViewManager()
+            let shortcutsTab = BrowserTab(title: "Shortcuts", url: "swiftbrowser://shortcuts", webView: webView)
+            tabs.append(shortcutsTab)
+            switchToTab(shortcutsTab)
+        }
+        addressBarText = "Shortcuts"
+    }
+    
     public func loadCurrent() {
         print("DEBUG: TabManager loadCurrent() called with text: '\(addressBarText)'")
         guard let currentTab = currentTab else { 
@@ -134,5 +174,24 @@ public final class TabManager: ObservableObject {
         print("DEBUG: loadCurrent loading URL: \(input)")
         currentTab.webView.load(input)
         currentTab.url = input
+    }
+
+    // Settings Propagation
+    public func updateContentBlocker(enabled: Bool) {
+        for tab in tabs {
+            tab.webView.updateContentBlocker(enabled: enabled)
+        }
+    }
+
+    public func updateDarkMode() {
+        for tab in tabs {
+            tab.webView.updateDarkMode()
+        }
+    }
+    
+    public func updateDeveloperMode(enabled: Bool) {
+        for tab in tabs {
+            tab.webView.updateDeveloperMode(enabled: enabled)
+        }
     }
 }

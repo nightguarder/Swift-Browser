@@ -11,9 +11,7 @@ import WebKit
 public final class ContentBlockerManager {
     public static let shared = ContentBlockerManager()
     
-    // Foundational blocklist for common ads and trackers
-    // Uses the WKContentRuleList format (JSON)
-    private let blocklistJSON = """
+    private static let blocklistJSON = """
     [
         {
             "trigger": {
@@ -70,7 +68,7 @@ public final class ContentBlockerManager {
 
         WKContentRuleListStore.default().compileContentRuleList(
             forIdentifier: "SwiftBrowserBlockList",
-            encodedContentRuleList: blocklistJSON
+            encodedContentRuleList: Self.blocklistJSON
         ) { [weak self] ruleList, error in
             if let error = error {
                 print("Content Blocker Error: \(error.localizedDescription)")
