@@ -11,7 +11,7 @@ import Combine
 
 // Observable store that owns the WKWebView and reports navigation state
 public final class WebViewManager: NSObject, ObservableObject, WKNavigationDelegate, WKScriptMessageHandler {
-    @Published public var webView: WKWebView
+    public let webView: WKWebView
     @Published public var canGoBack: Bool = false
     @Published public var canGoForward: Bool = false
     @Published public var isLoading: Bool = false
@@ -114,16 +114,17 @@ public final class WebViewManager: NSObject, ObservableObject, WKNavigationDeleg
         
         webView.publisher(for: \.estimatedProgress)
             .receive(on: mainQueue)
+            .throttle(for: .milliseconds(50), scheduler: mainQueue, latest: true)
             .sink { [weak self] value in
                 self?.progress = value
             }
             .store(in: &cancellables)
 
         Publishers.CombineLatest4(
-            webView.publisher(for: \.title),
-            webView.publisher(for: \.url),
-            webView.publisher(for: \.canGoBack),
-            webView.publisher(for: \.canGoForward)
+            webView.publisher(for: \.title).removeDuplicates(),
+            webView.publisher(for: \.url).removeDuplicates(),
+            webView.publisher(for: \.canGoBack).removeDuplicates(),
+            webView.publisher(for: \.canGoForward).removeDuplicates()
         )
         .receive(on: mainQueue)
         .sink { [weak self] title, url, canGoBack, canGoForward in
@@ -136,6 +137,7 @@ public final class WebViewManager: NSObject, ObservableObject, WKNavigationDeleg
 
         webView.publisher(for: \.isLoading)
             .receive(on: mainQueue)
+            .removeDuplicates()
             .sink { [weak self] loading in
                 self?.isLoading = loading
                 if !loading {
@@ -252,11 +254,15 @@ public final class WebViewManager: NSObject, ObservableObject, WKNavigationDeleg
     }
 
     public func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+        #if DEBUG
         print("DEBUG: WebView didFail navigation: \(error.localizedDescription)")
+        #endif
     }
 
     public func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+        #if DEBUG
         print("DEBUG: WebView didFailProvisionalNavigation: \(error.localizedDescription)")
+        #endif
     }
     
     public func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {

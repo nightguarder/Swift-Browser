@@ -23,6 +23,9 @@ public final class TabManager: ObservableObject {
     }
 
     deinit {
+        for tab in tabs {
+            tab.webView.teardown()
+        }
         cancellables.removeAll()
     }
 
@@ -30,15 +33,18 @@ public final class TabManager: ObservableObject {
         // Observe currentTab changes and subscribe to its webView's URL
         $currentTab
             .receive(on: DispatchQueue.main)
-            .flatMap { tab -> AnyPublisher<String, Never> in
-                guard let tab = tab else {
+            .map { tab -> AnyPublisher<String, Never> in
+                guard let tab else {
                     return Just("").eraseToAnyPublisher()
                 }
-                // Return the current URL or the tab's internal URL if it's an internal page
+
+                // Return the current URL or the tab's internal URL if it's an internal page.
+                // Use switchToLatest downstream so we don't keep subscriptions to background tabs.
                 return tab.webView.$currentURL
                     .map { $0?.absoluteString ?? tab.url }
                     .eraseToAnyPublisher()
             }
+            .switchToLatest()
             .sink { [weak self] value in
                 self?.addressBarText = value
             }
@@ -62,6 +68,9 @@ public final class TabManager: ObservableObject {
 
     public func closeTab(_ tab: BrowserTab) {
         let wasCurrent = currentTab?.id == tab.id
+
+        // Proactively tear down WebKit resources before releasing the tab.
+        tab.webView.teardown()
         
         withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
             tabs.removeAll { $0.id == tab.id }
@@ -145,15 +154,21 @@ public final class TabManager: ObservableObject {
     }
     
     public func loadCurrent() {
+        #if DEBUG
         print("DEBUG: TabManager loadCurrent() called with text: '\(addressBarText)'")
+        #endif
         guard let currentTab = currentTab else { 
+            #if DEBUG
             print("DEBUG: loadCurrent failed - currentTab is nil")
+            #endif
             return 
         }
         var input = addressBarText.trimmingCharacters(in: .whitespacesAndNewlines)
 
         if input.isEmpty {
+            #if DEBUG
             print("DEBUG: loadCurrent detected empty input")
+            #endif
             return
         }
         
@@ -171,7 +186,9 @@ public final class TabManager: ObservableObject {
             input = "https://duckduckgo.com/?q=\(query)"
         }
 
+        #if DEBUG
         print("DEBUG: loadCurrent loading URL: \(input)")
+        #endif
         currentTab.webView.load(input)
         currentTab.url = input
     }

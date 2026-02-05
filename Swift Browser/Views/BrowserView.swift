@@ -56,8 +56,12 @@ public struct BrowserView: View {
                     }
                 }
             )
-            .onChange(of: findInPageManager.searchText) { newValue in
-                 findInPageManager.find(newValue, webView: tabManager.currentTab?.webView.webView)
+            .onReceive(
+                findInPageManager.$searchText
+                    .removeDuplicates()
+                    .debounce(for: .milliseconds(150), scheduler: RunLoop.main)
+            ) { value in
+                findInPageManager.find(value, webView: tabManager.currentTab?.webView.webView)
             }
             .overlay(
                 TabSearchOverlay(
@@ -89,7 +93,7 @@ public struct BrowserView: View {
                 .zIndex(10)
                 Spacer()
             }
-            .onChange(of: tabSearchText) { newValue in
+            .onChange(of: tabSearchText) { _, newValue in
                 if !newValue.isEmpty {
                     selectedSearchIndex = 0
                     // Tab search overlay is already controlled by isTabSearchVisible in shortcuts

@@ -12,7 +12,6 @@ public class FindInPageManager: ObservableObject {
     
     public func find(_ text: String, webView: WKWebView?) {
         guard let webView = webView else { return }
-        self.searchText = text
         
         if text.isEmpty {
             totalResults = 0
