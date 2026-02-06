@@ -32,6 +32,9 @@ public struct FindBarView: View {
                     return .handled
                 }
             
+            KeyboardShortcutHint("⌘F")
+                .padding(.trailing, 4)
+            
             if manager.totalResults > 0 {
                 Text("\(manager.currentResult)/\(manager.totalResults)")
                     .font(.caption)

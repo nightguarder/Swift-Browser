@@ -156,6 +156,10 @@ public struct SidebarView: View {
                                 .font(AppFont.caption)
                                 .transition(.opacity.combined(with: .move(edge: .leading)))
                                 .lineLimit(1)
+                            
+                            Spacer()
+                            
+                            KeyboardShortcutHint("⌘T")
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: isSidebarHovered ? .leading : .center)
@@ -199,7 +203,7 @@ public struct SidebarTabButton: View {
     
     public var body: some View {
         HStack(spacing: 8) {
-            TabFaviconView(urlString: tab.url, title: tab.title)
+            FaviconView(urlString: tab.url, title: tab.title)
                 .frame(width: 18, height: 18)
                 .padding(.leading, 2)
                 .padding(.trailing, 2)
@@ -219,6 +223,10 @@ public struct SidebarTabButton: View {
                             .foregroundColor(.secondary)
                     }
                     .buttonStyle(.plain)
+                    .help("Close Tab (⌘W)")
+                    
+                    KeyboardShortcutHint("⌘W")
+                        .opacity(hoveredTabId == tab.id || isCurrent ? 1 : 0)
                 }
             }
         }
@@ -239,60 +247,6 @@ public struct SidebarTabButton: View {
         }
         .onHover { hovering in
             hoveredTabId = hovering ? tab.id : nil
-        }
-    }
-}
-
-private struct TabFaviconView: View {
-    let urlString: String
-    let title: String
-
-    var body: some View {
-        if urlString.isEmpty {
-            fallback(systemName: "house")
-        } else if urlString == "swiftbrowser://settings" {
-            fallback(systemName: "gearshape")
-        } else if urlString == "swiftbrowser://history" {
-            fallback(systemName: "clock")
-        } else if urlString == "swiftbrowser://shortcuts" {
-            fallback(systemName: "keyboard")
-        } else if urlString.hasPrefix("swiftbrowser://") {
-            fallback(systemName: "doc")
-        } else if let url = URL(string: urlString), let host = url.host {
-            let scheme = url.scheme ?? "https"
-            let favicon = URL(string: "\(scheme)://\(host)/favicon.ico")
-            faviconView(url: favicon)
-        } else {
-            fallback(systemName: "globe")
-        }
-    }
-
-    @ViewBuilder
-    private func faviconView(url: URL?) -> some View {
-        if #available(macOS 12.0, *), let url {
-            AsyncImage(url: url, transaction: Transaction(animation: .none)) { phase in
-                switch phase {
-                case .success(let image):
-                    image
-                        .resizable()
-                        .scaledToFit()
-                        .clipShape(RoundedRectangle(cornerRadius: 3))
-                default:
-                    fallback(systemName: "globe")
-                }
-            }
-        } else {
-            fallback(systemName: "globe")
-        }
-    }
-
-    private func fallback(systemName: String) -> some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 4)
-                .fill(Color.primary.opacity(0.06))
-            Image(systemName: systemName)
-                .font(.system(size: 11, weight: .regular))
-                .foregroundColor(.secondary)
         }
     }
 }

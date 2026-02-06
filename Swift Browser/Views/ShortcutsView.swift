@@ -10,6 +10,7 @@ struct ShortcutItem: Identifiable {
 struct ShortcutsView: View {
     @ObservedObject var tabManager: TabManager
     @State private var searchText = ""
+    @FocusState private var isSearchFocused: Bool
     
     private let allShortcuts: [ShortcutItem] = [
         // Tabs
@@ -29,6 +30,11 @@ struct ShortcutsView: View {
         ShortcutItem(title: "Zoom In", keys: "⌘ +", category: "Zoom"),
         ShortcutItem(title: "Zoom Out", keys: "⌘ -", category: "Zoom"),
         ShortcutItem(title: "Reset Zoom", keys: "⌘ 0", category: "Zoom"),
+        
+        // Browser
+        ShortcutItem(title: "Open Bookmarks", keys: "⌘ ⌥ B", category: "Browser"),
+        ShortcutItem(title: "Open History", keys: "⌘ Y", category: "Browser"),
+        ShortcutItem(title: "Open Shortcuts", keys: "⌘ ⇧ /", category: "Browser"),
         
         // Tools
         ShortcutItem(title: "Toggle Find in Page", keys: "⌘ F", category: "Tools"),
@@ -67,9 +73,16 @@ struct ShortcutsView: View {
                 TextField("Search Shortcuts", text: $searchText)
                     .textFieldStyle(RoundedBorderTextFieldStyle())
                     .frame(width: 300)
+                    .focused($isSearchFocused)
+                    .onExitCommand {
+                        isSearchFocused = false
+                    }
             }
             .padding(20)
             .background(Color(NSColor.controlBackgroundColor))
+            .onTapGesture {
+                isSearchFocused = false
+            }
             
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 20) {
@@ -110,8 +123,19 @@ struct ShortcutsView: View {
                     }
                 }
                 .padding(.bottom, 20)
+                .frame(maxWidth: .infinity, minHeight: 400, alignment: .topLeading)
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    isSearchFocused = false
+                }
             }
         }
         .background(Color(NSColor.windowBackgroundColor))
+        .onAppear {
+            isSearchFocused = true
+        }
+        .onTapGesture {
+            isSearchFocused = false
+        }
     }
 }

@@ -5,13 +5,15 @@
 
 import SwiftUI
 
+/// A small badge displaying a keyboard shortcut.
+/// This view is intended as a lightweight, reusable hint in toolbars, menus, or help overlays.
 public struct KeyboardShortcutHint: View {
     let keys: String
-    var color: Color = .secondary
+    // Color is fixed to provide a simple, consistent appearance across the app.
+    private let color: Color = .secondary
 
-    public init(_ keys: String, color: Color = .secondary) {
+    public init(_ keys: String) {
         self.keys = keys
-        self.color = color
     }
 
     public var body: some View {
@@ -25,9 +27,31 @@ public struct KeyboardShortcutHint: View {
     }
 }
 
+// Lightweight previews for quick visual checks in Xcode
+#if DEBUG
+struct SharedComponents_Previews: PreviewProvider {
+  static var previews: some View {
+    VStack(alignment: .leading, spacing: 8) {
+      KeyboardShortcutHint("⌘K")
+      KeyboardShortcutHint("Ctrl+P")
+      HighlightedText(text: "Swift Browser", highlight: "Swift")
+      HighlightedText(text: "Swift Browser", highlight: "Browser")
+      HighlightedText(text: "No highlight here", highlight: "")
+    }
+    .padding()
+    .previewLayout(.sizeThatFits)
+  }
+}
+#endif
+
+/// Text renderer that highlights a given substring within the main text.
+/// - text: Full text to render
+/// - highlight: Substring to emphasize by applying a background highlight
 public struct HighlightedText: View {
     public let text: String
     public let highlight: String
+    // Simple, fixed highlight color (no customization to keep the API small)
+    private let highlightColor: Color = .yellow
     
     public init(text: String, highlight: String) {
         self.text = text
@@ -44,8 +68,8 @@ public struct HighlightedText: View {
     
     private var highlightedAttributedString: AttributedString {
         var result = AttributedString(text)
-        if let range = result.range(of: highlight, options: .caseInsensitive) {
-            result[range].backgroundColor = .yellow.opacity(0.3)
+        if !highlight.isEmpty, let range = result.range(of: highlight, options: .caseInsensitive) {
+            result[range].backgroundColor = highlightColor.opacity(0.3)
         }
         return result
     }

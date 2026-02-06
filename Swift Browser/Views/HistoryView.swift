@@ -1,73 +1,12 @@
 import SwiftUI
 
-final class HistoryKeyboardCoordinator: NSObject {
-    private var moveAction: ((Int) -> Void)?
-    private var openAction: (() -> Void)?
-    private var escAction: (() -> Void)?
-    private var copyURLAction: (() -> Void)?
-    private var deleteAction: (() -> Void)?
-
-    init(moveAction: @escaping (Int) -> Void,
-         openAction: @escaping () -> Void,
-         escAction: @escaping () -> Void,
-         copyURLAction: @escaping () -> Void,
-         deleteAction: @escaping () -> Void) {
-        self.moveAction = moveAction
-        self.openAction = openAction
-        self.escAction = escAction
-        self.copyURLAction = copyURLAction
-        self.deleteAction = deleteAction
-        super.init()
-        setupMonitor()
-    }
-
-    deinit {
-        if let monitor = monitor {
-            NSEvent.removeMonitor(monitor)
-        }
-    }
-
-    private var monitor: Any?
-
-    private func setupMonitor() {
-        monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            guard let self = self else { return event }
-            if event.isARepeat { return event }
-
-            if event.keyCode == 126 {
-                self.moveAction?(-1)
-                return nil
-            } else if event.keyCode == 125 {
-                self.moveAction?(1)
-                return nil
-            } else if event.keyCode == 36 {
-                self.openAction?()
-                return nil
-            } else if event.keyCode == 51 {
-                self.deleteAction?()
-                return nil
-            } else if event.keyCode == 53 {
-                self.escAction?()
-                return nil
-            }
-
-            if event.modifierFlags.contains(.command) && event.characters == "c" {
-                self.copyURLAction?()
-                return nil
-            }
-
-            return event
-        }
-    }
-}
-
 struct HistoryView: View {
     @StateObject private var historyManager = HistoryManager.shared
     @ObservedObject var tabManager: TabManager
     @State private var searchText = ""
     @State private var selectedItemID: UUID?
     @FocusState private var isSearchFocused: Bool
-    @State private var keyboardCoordinator: HistoryKeyboardCoordinator?
+    @State private var keyboardCoordinator: KeyboardCoordinator?
     @State private var selectedPeriod: TimePeriod = .all
     @State private var showingClearHistoryDialog = false
     @State private var showingDeletePeriodDialog = false
@@ -112,6 +51,26 @@ struct HistoryView: View {
                 let itemsToDelete = manager.history.filter { $0.visitDate >= thirtyDaysAgo }
                 itemsToDelete.forEach { manager.deleteItem($0) }
             }
+        }
+
+        var dateFilter: (Date) -> Bool {
+            let now = Date()
+            let calendar = Calendar.current
+            switch self {
+            case .all: return { _ in true }
+            case .today: return { calendar.isDateInToday($0) }
+            case .yesterday: return { calendar.isDateInYesterday($0) }
+            case .last7Days:
+                let sevenDaysAgo = calendar.date(byAdding: .day, value: -7, to: now)!
+                return { $0 >= sevenDaysAgo }
+            case .last30Days:
+                let thirtyDaysAgo = calendar.date(byAdding: .day, value: -30, to: now)!
+                return { $0 >= thirtyDaysAgo }
+            }
+        }
+
+        func itemCount(from manager: HistoryManager) -> Int {
+            manager.history.filter(dateFilter).count
         }
     }
 
@@ -321,7 +280,7 @@ struct HistoryView: View {
         .background(Color(NSColor.windowBackgroundColor))
         .onAppear {
             isSearchFocused = true
-            keyboardCoordinator = HistoryKeyboardCoordinator(
+            keyboardCoordinator = KeyboardCoordinator(
                 moveAction: { direction in
                     self.moveSelection(direction: direction)
                 },
@@ -330,6 +289,7 @@ struct HistoryView: View {
                 },
                 escAction: {
                     self.isSearchFocused = false
+                    NSApp.keyWindow?.makeFirstResponder(nil)
                 },
                 copyURLAction: {
                     self.copySelectedURL()

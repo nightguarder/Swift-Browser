@@ -26,7 +26,11 @@ public struct SettingsView: View {
             HStack {
                 Text("Settings")
                     .font(.system(size: 18, weight: .semibold))
+                
                 Spacer()
+                
+                KeyboardShortcutHint("⌘,")
+                
                 Button("Done") {
                     if let current = tabManager.currentTab, current.url == "swiftbrowser://settings" {
                         tabManager.closeTab(current)
@@ -140,7 +144,7 @@ public struct SettingsView: View {
                             tabManager.updateDeveloperMode(enabled: newValue)
                         }
                         
-                        Text("Right-click a page and choose Inspect Element, or use Safari's Develop menu")
+                        Text("Right-click on a page and choose Inspect Element.")
                             .font(.system(size: 12))
                             .foregroundColor(.secondary)
                             .padding(.horizontal, 12)
