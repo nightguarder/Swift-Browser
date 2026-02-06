@@ -126,24 +126,15 @@ public struct HomePage: View {
                                 Button(action: { onSearch(bm.url) }) {
                                     VStack(spacing: 12) {
                                         ZStack {
-                                            RoundedRectangle(cornerRadius: 18)
-                                                .fill(Color.primary.opacity(0.05))
-                                                .frame(width: 64, height: 64)
-                                                .overlay(
-                                                    RoundedRectangle(cornerRadius: 18)
-                                                        .stroke(Color.white.opacity(0.2), lineWidth: 1)
-                                                )
-                                            
-                                            Image(systemName: "safari")
-                                                .font(.system(size: 28))
-                                                .foregroundStyle(
-                                                    LinearGradient(
-                                                        colors: [.blue.opacity(0.7), .purple.opacity(0.7)],
-                                                        startPoint: .topLeading,
-                                                        endPoint: .bottomTrailing
-                                                    )
-                                                )
+                                            FaviconView(urlString: bm.url, title: bm.title, size: 28)
                                         }
+                                        .frame(width: 64, height: 64)
+                                        .background(Color.primary.opacity(0.05))
+                                        .clipShape(RoundedRectangle(cornerRadius: 18))
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 18)
+                                                .stroke(Color.white.opacity(0.2), lineWidth: 1)
+                                        )
                                         .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 2)
                                         
                                         Text(bm.title)
