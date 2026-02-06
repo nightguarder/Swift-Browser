@@ -8,10 +8,11 @@
 import SwiftUI
 import Combine
 
-public struct BrowserView: View {
-    @StateObject public var tabManager = TabManager()
-    @StateObject public var bookmarkManager = BookmarkManager()
-    @StateObject public var findInPageManager = FindInPageManager()
+struct BrowserView: View {
+    @StateObject var tabManager = TabManager()
+    @StateObject var bookmarkManager = BookmarkManager.shared
+    @StateObject var historyManager = HistoryManager.shared
+    @StateObject var findInPageManager = FindInPageManager()
     @FocusState private var isAddressBarFocused: Bool
     @AppStorage("userName") private var userName: String = "User"
 
@@ -30,7 +31,7 @@ public struct BrowserView: View {
     @FocusState private var isTabSearchFocused: Bool
     @FocusState private var isSidebarSearchFocused: Bool
 
-    public init() {}
+    init() {}
 
     public var body: some View {
         mainContentView
@@ -109,9 +110,11 @@ public struct BrowserView: View {
             TopToolbar(
                 tabManager: tabManager,
                 bookmarkManager: bookmarkManager,
+                historyManager: historyManager,
                 isAddressBarFocused: $isAddressBarFocused,
                 isMenuExpanded: $isMenuExpanded
             )
+            .zIndex(1)
             
             Divider()
             
@@ -121,6 +124,9 @@ public struct BrowserView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if let currentTab = tabManager.currentTab, currentTab.url == "swiftbrowser://history" {
                 HistoryView(tabManager: tabManager)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if let currentTab = tabManager.currentTab, currentTab.url == "swiftbrowser://bookmarks" {
+                BookmarksView(tabManager: tabManager)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if let currentTab = tabManager.currentTab, currentTab.url == "swiftbrowser://shortcuts" {
                 ShortcutsView(tabManager: tabManager)
@@ -235,6 +241,9 @@ public struct BrowserView: View {
                     }
                 }
             }.keyboardShortcut("k", modifiers: .command)
+            Button("") { tabManager.openBookmarks() }.keyboardShortcut("b", modifiers: [.command, .option])
+            Button("") { tabManager.openHistory() }.keyboardShortcut("y", modifiers: .command)
+            Button("") { tabManager.openShortcuts() }.keyboardShortcut("/", modifiers: [.command, .shift])
             Button("") {
                 withAnimation {
                     findInPageManager.isVisible.toggle()

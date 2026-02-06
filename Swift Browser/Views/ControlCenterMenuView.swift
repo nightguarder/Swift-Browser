@@ -23,6 +23,10 @@ public struct ControlCenterMenuView: View {
                 tabManager.openHistory()
             }
             
+            MenuItem(icon: "bookmark", title: "Bookmarks", isExpanded: $isExpanded) {
+                tabManager.openBookmarks()
+            }
+            
             MenuItem(icon: "keyboard", title: "Shortcuts", isExpanded: $isExpanded) {
                 tabManager.openShortcuts()
             }

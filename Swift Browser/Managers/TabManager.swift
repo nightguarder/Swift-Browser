@@ -232,6 +232,18 @@ public final class TabManager: ObservableObject {
         }
         addressBarText = "Shortcuts"
     }
+
+    public func openBookmarks() {
+        // Check if bookmarks tab already exists
+        if let bookmarksTab = tabs.first(where: { $0.url == "swiftbrowser://bookmarks" }) {
+            switchToTab(bookmarksTab)
+        } else {
+            let bookmarksTab = BrowserTab(title: "Bookmarks", url: "swiftbrowser://bookmarks", webView: nil)
+            tabs.append(bookmarksTab)
+            switchToTab(bookmarksTab)
+        }
+        addressBarText = "Bookmarks"
+    }
     
     public func loadCurrent() {
         #if DEBUG
