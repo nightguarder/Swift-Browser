@@ -7,15 +7,17 @@
 
 import SwiftUI
 
-public struct TopToolbar: View {
+struct TopToolbar: View {
     @ObservedObject var tabManager: TabManager
     @ObservedObject var bookmarkManager: BookmarkManager
+    @ObservedObject var historyManager: HistoryManager
     @FocusState.Binding var isAddressBarFocused: Bool
     @Binding var isMenuExpanded: Bool
     
-    public init(tabManager: TabManager, bookmarkManager: BookmarkManager, isAddressBarFocused: FocusState<Bool>.Binding, isMenuExpanded: Binding<Bool>) {
+    init(tabManager: TabManager, bookmarkManager: BookmarkManager, historyManager: HistoryManager, isAddressBarFocused: FocusState<Bool>.Binding, isMenuExpanded: Binding<Bool>) {
         self.tabManager = tabManager
         self.bookmarkManager = bookmarkManager
+        self.historyManager = historyManager
         self._isAddressBarFocused = isAddressBarFocused
         self._isMenuExpanded = isMenuExpanded
     }
@@ -63,6 +65,9 @@ public struct TopToolbar: View {
                     .focused($isAddressBarFocused)
                     .disableAutocorrection(true)
                     .font(AppFont.searchField)
+                
+                KeyboardShortcutHint("⌘L")
+                    .padding(.trailing, 4)
                 
                 // Privacy Shield Indicator
                 if let currentTab = tabManager.currentTab, !(currentTab.webView?.isLoading ?? false) {
@@ -125,6 +130,19 @@ public struct TopToolbar: View {
                 RoundedRectangle(cornerRadius: 10)
                     .stroke(Color.primary.opacity(0.1), lineWidth: 0.5)
                 )
+            .overlay(
+                AddressBarSuggestionsView(
+                    tabManager: tabManager,
+                    bookmarkManager: bookmarkManager,
+                    historyManager: historyManager,
+                    isFocused: Binding(
+                        get: { isAddressBarFocused },
+                        set: { isAddressBarFocused = $0 }
+                    )
+                )
+                .offset(y: 40)
+                , alignment: .top
+            )
 
             // Control Center Menu Button
             ControlCenterMenuButton(isExpanded: $isMenuExpanded)
