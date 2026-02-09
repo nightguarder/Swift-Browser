@@ -231,28 +231,24 @@ public struct SettingsView: View {
     
     private func resetBrowser() {
         let defaults = UserDefaults.standard
-        
-        // Clear all browser UserDefaults
-        let allKeys = defaults.dictionaryRepresentation().keys
-        for key in allKeys {
-            defaults.removeObject(forKey: key)
-        }
-        
-        // Clear web cache and data
+        let bundleID = "nightguarder.Swift-Browser"
+
+        defaults.dictionaryRepresentation().keys.filter { $0.hasPrefix(bundleID) || appSpecificKeys.contains($0) }.forEach { defaults.removeObject(forKey: $0) }
+
         let websiteDataTypes = WKWebsiteDataStore.allWebsiteDataTypes()
         let date = Date(timeIntervalSince1970: 0)
         WKWebsiteDataStore.default().removeData(ofTypes: websiteDataTypes, modifiedSince: date) { }
-        
-        // Clear cookies
+
         HTTPCookieStorage.shared.removeCookies(since: date)
-        
-        // Reset content blocker to default (enabled)
+
         defaults.set(true, forKey: "contentBlockerEnabled")
-        
-        // Reset dark mode preference to follow system
         defaults.set(DarkModeManager.DarkModePreference.system.rawValue, forKey: "darkModePreference")
-        
-        // Clear History in memory
+
         HistoryManager.shared.clearHistory()
     }
+
+    private let appSpecificKeys = [
+        "userName", "contentBlockerEnabled", "darkModePreference",
+        "doNotTrackEnabled", "developerModeEnabled", "tabDiscardingEnabled"
+    ]
 }

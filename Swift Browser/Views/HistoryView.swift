@@ -6,11 +6,17 @@ struct HistoryView: View {
     @State private var searchText = ""
     @State private var selectedItemID: UUID?
     @FocusState private var isSearchFocused: Bool
-    @State private var keyboardCoordinator: KeyboardCoordinator?
     @State private var selectedPeriod: TimePeriod = .all
     @State private var showingClearHistoryDialog = false
+    @State private var addressSuggestions: [HistorySuggestion] = []
+    @State private var addressBarWidth: CGFloat = 320
     @State private var showingDeletePeriodDialog = false
     @State private var periodToDelete: TimePeriod?
+    
+    struct HistorySuggestion: Identifiable {
+        let id = UUID()
+        let text: String
+    }
 
     enum TimePeriod: String, CaseIterable {
         case all = "All History"
@@ -53,19 +59,19 @@ struct HistoryView: View {
             }
         }
 
-        var dateFilter: (Date) -> Bool {
+        var dateFilter: (HistoryItem) -> Bool {
             let now = Date()
             let calendar = Calendar.current
             switch self {
             case .all: return { _ in true }
-            case .today: return { calendar.isDateInToday($0) }
-            case .yesterday: return { calendar.isDateInYesterday($0) }
+            case .today: return { calendar.isDateInToday($0.visitDate) }
+            case .yesterday: return { calendar.isDateInYesterday($0.visitDate) }
             case .last7Days:
                 let sevenDaysAgo = calendar.date(byAdding: .day, value: -7, to: now)!
-                return { $0 >= sevenDaysAgo }
+                return { $0.visitDate >= sevenDaysAgo }
             case .last30Days:
                 let thirtyDaysAgo = calendar.date(byAdding: .day, value: -30, to: now)!
-                return { $0 >= thirtyDaysAgo }
+                return { $0.visitDate >= thirtyDaysAgo }
             }
         }
 
@@ -80,20 +86,7 @@ struct HistoryView: View {
         let now = Date()
         let calendar = Calendar.current
 
-        switch selectedPeriod {
-        case .all:
-            break
-        case .today:
-            items = items.filter { calendar.isDateInToday($0.visitDate) }
-        case .yesterday:
-            items = items.filter { calendar.isDateInYesterday($0.visitDate) }
-        case .last7Days:
-            let sevenDaysAgo = calendar.date(byAdding: .day, value: -7, to: now)!
-            items = items.filter { $0.visitDate >= sevenDaysAgo }
-        case .last30Days:
-            let thirtyDaysAgo = calendar.date(byAdding: .day, value: -30, to: now)!
-            items = items.filter { $0.visitDate >= thirtyDaysAgo }
-        }
+        items = items.filter(selectedPeriod.dateFilter)
 
         if !searchText.isEmpty {
             let query = searchText.lowercased()
@@ -191,8 +184,30 @@ struct HistoryView: View {
                 }
                 .padding(20)
                 .background(Color(NSColor.controlBackgroundColor))
-                .onTapGesture {
+            .onTapGesture {
                     isSearchFocused = false
+                }
+                // Address suggestions dropdown (fixed height with internal scrolling)
+                if !addressSuggestions.isEmpty {
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 0) {
+                            ForEach(addressSuggestions) { item in
+                                Button(action: { self.searchText = item.text }) {
+                                    Text(item.text)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                        .padding(.vertical, 8)
+                                        .padding(.horizontal, 10)
+                                }
+                                .buttonStyle(PlainButtonStyle())
+                            }
+                        }
+                    }
+                    .frame(width: addressBarWidth)
+                    .frame(minHeight: 150, maxHeight: 240, alignment: .topLeading)
+                    .background(Color(NSColor.windowBackgroundColor))
+                    .border(Color.gray.opacity(0.25))
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 8)
                 }
 
                 ScrollViewReader { proxy in
@@ -239,6 +254,7 @@ struct HistoryView: View {
                                                 } label: {
                                                     Label("Copy URL", systemImage: "doc.on.doc")
                                                 }
+                                                .keyboardShortcut("c", modifiers: .command)
 
                                                 Button {
                                                     tabManager.addressBarText = item.url.absoluteString
@@ -246,6 +262,7 @@ struct HistoryView: View {
                                                 } label: {
                                                     Label("Open", systemImage: "arrow.right")
                                                 }
+                                                .keyboardShortcut("o", modifiers: .command)
 
                                                 Divider()
 
@@ -254,6 +271,7 @@ struct HistoryView: View {
                                                 } label: {
                                                     Label("Delete", systemImage: "trash")
                                                 }
+                                                .keyboardShortcut(.delete, modifiers: .command)
                                             }
                                         }
                                     }
@@ -280,27 +298,6 @@ struct HistoryView: View {
         .background(Color(NSColor.windowBackgroundColor))
         .onAppear {
             isSearchFocused = true
-            keyboardCoordinator = KeyboardCoordinator(
-                moveAction: { direction in
-                    self.moveSelection(direction: direction)
-                },
-                openAction: {
-                    self.openSelected()
-                },
-                escAction: {
-                    self.isSearchFocused = false
-                    NSApp.keyWindow?.makeFirstResponder(nil)
-                },
-                copyURLAction: {
-                    self.copySelectedURL()
-                },
-                deleteAction: {
-                    self.deleteSelected()
-                }
-            )
-        }
-        .onDisappear {
-            keyboardCoordinator = nil
         }
         .onTapGesture {
             isSearchFocused = false
@@ -326,23 +323,7 @@ struct HistoryView: View {
     }
 
     private func itemCount(for period: TimePeriod) -> Int {
-        let now = Date()
-        let calendar = Calendar.current
-
-        switch period {
-        case .all:
-            return historyManager.history.count
-        case .today:
-            return historyManager.history.filter { calendar.isDateInToday($0.visitDate) }.count
-        case .yesterday:
-            return historyManager.history.filter { calendar.isDateInYesterday($0.visitDate) }.count
-        case .last7Days:
-            let sevenDaysAgo = calendar.date(byAdding: .day, value: -7, to: now)!
-            return historyManager.history.filter { $0.visitDate >= sevenDaysAgo }.count
-        case .last30Days:
-            let thirtyDaysAgo = calendar.date(byAdding: .day, value: -30, to: now)!
-            return historyManager.history.filter { $0.visitDate >= thirtyDaysAgo }.count
-        }
+        period.itemCount(from: historyManager)
     }
 
     private func moveSelection(direction: Int) {

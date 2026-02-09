@@ -6,7 +6,6 @@
 //
 
 import SwiftUI
-import Foundation
 
 public struct SidebarView: View {
     @ObservedObject var tabManager: TabManager

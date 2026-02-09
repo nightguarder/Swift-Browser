@@ -5,77 +5,20 @@
 
 import SwiftUI
 
-import SwiftUI
-
-final class BookmarksKeyboardCoordinator: NSObject {
-    private var moveAction: ((Int) -> Void)?
-    private var openAction: (() -> Void)?
-    private var escAction: (() -> Void)?
-    private var copyURLAction: (() -> Void)?
-    private var deleteAction: (() -> Void)?
-    
-    init(moveAction: @escaping (Int) -> Void,
-         openAction: @escaping () -> Void,
-         escAction: @escaping () -> Void,
-         copyURLAction: @escaping () -> Void,
-         deleteAction: @escaping () -> Void) {
-        self.moveAction = moveAction
-        self.openAction = openAction
-        self.escAction = escAction
-        self.copyURLAction = copyURLAction
-        self.deleteAction = deleteAction
-        super.init()
-        setupMonitor()
-    }
-    
-    deinit {
-        if let monitor = monitor {
-            NSEvent.removeMonitor(monitor)
-        }
-    }
-    
-    private var monitor: Any?
-    
-    private func setupMonitor() {
-        monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            guard let self = self else { return event }
-            if event.isARepeat { return event }
-            
-            if event.keyCode == 126 { // Up
-                self.moveAction?(-1)
-                return nil
-            } else if event.keyCode == 125 { // Down
-                self.moveAction?(1)
-                return nil
-            } else if event.keyCode == 36 { // Enter
-                self.openAction?()
-                return nil
-            } else if event.keyCode == 51 { // Delete
-                self.deleteAction?()
-                return nil
-            } else if event.keyCode == 53 { // ESC
-                self.escAction?()
-                return nil
-            }
-            
-            if event.modifierFlags.contains(.command) && event.characters == "c" {
-                self.copyURLAction?()
-                return nil
-            }
-            
-            return event
-        }
-    }
-}
-
 struct BookmarksView: View {
     @StateObject private var bookmarkManager = BookmarkManager.shared
     @ObservedObject var tabManager: TabManager
     @State private var searchText = ""
     @State private var selectedBookmarkID: UUID?
     @FocusState private var isSearchFocused: Bool
-    @State private var keyboardCoordinator: BookmarksKeyboardCoordinator?
-    @State private var selectedFolder: String? = nil
+    @State private var selectedFolder: String?
+    @State private var addressSuggestions: [BookmarkSuggestion] = []
+    @State private var addressBarWidth: CGFloat = 320
+    
+    struct BookmarkSuggestion: Identifiable {
+        let id = UUID()
+        let text: String
+    }
     
     var filteredBookmarks: [Bookmark] {
         var result = bookmarkManager.bookmarks
@@ -111,7 +54,7 @@ struct BookmarksView: View {
                     
                     Spacer()
                     
-                    KeyboardShortcutHint("⌘D")
+                    KeyboardShortcutHint("⌘B")
                 }
                 .padding(.horizontal, 12)
                 .padding(.top, 20)
@@ -165,6 +108,28 @@ struct BookmarksView: View {
                 .background(Color(NSColor.controlBackgroundColor))
                 .onTapGesture {
                     isSearchFocused = false
+                }
+                // Address suggestions dropdown (fixed height with internal scrolling)
+                if !addressSuggestions.isEmpty {
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 0) {
+                            ForEach(addressSuggestions) { item in
+                                Button(action: { self.searchText = item.text }) {
+                                    Text(item.text)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                        .padding(.vertical, 8)
+                                        .padding(.horizontal, 10)
+                                }
+                                .buttonStyle(PlainButtonStyle())
+                            }
+                        }
+                    }
+                    .frame(width: addressBarWidth)
+                    .frame(minHeight: 150, maxHeight: 240, alignment: .topLeading)
+                    .background(Color(NSColor.windowBackgroundColor))
+                    .border(Color.gray.opacity(0.25))
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 8)
                 }
                 
                 ScrollViewReader { proxy in
@@ -223,30 +188,17 @@ struct BookmarksView: View {
         .background(Color(NSColor.windowBackgroundColor))
         .onAppear {
             isSearchFocused = true
-            keyboardCoordinator = BookmarksKeyboardCoordinator(
-                moveAction: { direction in
-                    self.moveSelection(direction: direction)
-                },
-                openAction: {
-                    self.openSelected()
-                },
-                escAction: {
-                    self.isSearchFocused = false
-                    NSApp.keyWindow?.makeFirstResponder(nil)
-                },
-                copyURLAction: {
-                    self.copySelectedURL()
-                },
-                deleteAction: {
-                    self.deleteSelected()
-                }
-            )
-        }
-        .onDisappear {
-            keyboardCoordinator = nil
         }
         .onTapGesture {
             isSearchFocused = false
+        }
+        .onChange(of: searchText) { newValue in
+            if newValue.isEmpty {
+                addressSuggestions = []
+            } else {
+                let samples = ["https://example.com/search?q=", "https://swift.org/search?q=", "https://duckduckgo.com/?q="]
+                addressSuggestions = samples.map { BookmarkSuggestion(text: $0 + newValue) }
+            }
         }
     }
     
@@ -413,11 +365,13 @@ struct BookmarkItemRow: View {
             } label: {
                 Label("Copy URL", systemImage: "doc.on.doc")
             }
-            
+            .keyboardShortcut("c", modifiers: .command)
+
             Button(action: onSelect) {
                 Label("Open", systemImage: "arrow.right")
             }
-            
+            .keyboardShortcut("o", modifiers: .command)
+
             Menu("Move to Folder") {
                 Button("No Folder") { onMove(nil) }
                 Divider()
@@ -425,12 +379,13 @@ struct BookmarkItemRow: View {
                     Button(folder) { onMove(folder) }
                 }
             }
-            
+
             Divider()
-            
+
             Button(role: .destructive, action: onDelete) {
                 Label("Delete", systemImage: "trash")
             }
+            .keyboardShortcut(.delete, modifiers: .command)
         }
     }
     

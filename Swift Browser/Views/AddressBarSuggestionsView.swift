@@ -5,16 +5,26 @@ struct AddressBarSuggestionsView: View {
     @ObservedObject var bookmarkManager: BookmarkManager
     @ObservedObject var historyManager: HistoryManager
     @Binding var isFocused: Bool
-    @State private var selectedIndex: Int = -1
+    @Binding var selectedIndex: Int
     @State private var searchSuggestions: [SearchSuggestion] = []
     @State private var isLoadingSuggestions = false
+    @State private var cachedSuggestions: [Suggestion] = []
+    @State private var lastQuery: String = ""
 
-    struct Suggestion: Identifiable {
+    struct Suggestion: Identifiable, Equatable, Hashable {
         let id = UUID()
         let title: String
         let url: String
         let type: SuggestionType
         let isSearch: Bool
+        
+        static func == (lhs: Suggestion, rhs: Suggestion) -> Bool {
+            lhs.id == rhs.id && lhs.url == rhs.url
+        }
+        
+        func hash(into hasher: inout Hasher) {
+            hasher.combine(id)
+        }
     }
 
     enum SuggestionType {
@@ -23,96 +33,97 @@ struct AddressBarSuggestionsView: View {
         case search
     }
 
-    struct SearchSuggestion: Decodable {
+    struct SearchSuggestion: Decodable, Equatable {
         let phrase: String
     }
 
-    var suggestions: [Suggestion] {
-        let query = tabManager.addressBarText.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
-        if query.isEmpty || query.hasPrefix("swiftbrowser://") { return [] }
+    private var query: String {
+        tabManager.addressBarText.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func updateSuggestions() -> [Suggestion] {
+        let currentQuery = query
+        guard !currentQuery.isEmpty, !currentQuery.hasPrefix("swiftbrowser://") else { return [] }
+        
+        // Only recalculate if query changed
+        if currentQuery == lastQuery && !cachedSuggestions.isEmpty {
+            return cachedSuggestions
+        }
 
         var result: [Suggestion] = []
 
-        let matchedBookmarks = bookmarkManager.bookmarks.filter {
-            $0.title.lowercased().contains(query) || $0.url.lowercased().contains(query)
-        }.prefix(5)
+        result.append(contentsOf: bookmarkManager.bookmarks
+            .filter { $0.title.lowercased().contains(currentQuery) || $0.url.lowercased().contains(currentQuery) }
+            .prefix(5)
+            .map { Suggestion(title: $0.title, url: $0.url, type: .bookmark, isSearch: false) })
 
-        result.append(contentsOf: matchedBookmarks.map {
-            Suggestion(title: $0.title, url: $0.url, type: .bookmark, isSearch: false)
-        })
+        result.append(contentsOf: historyManager.history
+            .filter { ($0.title?.lowercased().contains(currentQuery) ?? false) || $0.url.absoluteString.lowercased().contains(currentQuery) }
+            .prefix(5)
+            .map { Suggestion(title: $0.title ?? "Untitled", url: $0.url.absoluteString, type: .history, isSearch: false) })
 
-        let matchedHistory = historyManager.history.filter {
-            ($0.title?.lowercased().contains(query) ?? false) || $0.url.absoluteString.lowercased().contains(query)
-        }.prefix(5)
-
-        result.append(contentsOf: matchedHistory.map {
-            Suggestion(title: $0.title ?? "Untitled", url: $0.url.absoluteString, type: .history, isSearch: false)
-        })
-
-        for suggestion in searchSuggestions.prefix(5) {
-            result.append(Suggestion(title: suggestion.phrase, url: suggestion.phrase, type: .search, isSearch: true))
-        }
+        result.append(contentsOf: searchSuggestions.prefix(5)
+            .map { Suggestion(title: $0.phrase, url: $0.phrase, type: .search, isSearch: true) })
 
         if result.isEmpty || !result.contains(where: { $0.type == .search }) {
-            result.append(Suggestion(title: "Search with DuckDuckGo", url: query, type: .search, isSearch: true))
+            result.append(Suggestion(title: "Search with DuckDuckGo", url: currentQuery, type: .search, isSearch: true))
         }
 
-        return result
+        return Array(result.prefix(8))
     }
 
     var body: some View {
-        if isFocused && !suggestions.isEmpty {
-            VStack(spacing: 0) {
-                ScrollView {
-                    VStack(spacing: 0) {
-                        ForEach(Array(suggestions.enumerated()), id: \.element.id) { index, suggestion in
-                            SuggestionRow(
-                                suggestion: suggestion,
-                                isSelected: index == selectedIndex,
-                                query: tabManager.addressBarText
-                            ) {
-                                selectSuggestion(suggestion)
-                            }
-                        }
-                    }
-                }
-            }
-            .frame(maxWidth: .infinity)
-            .background(.ultraThinMaterial)
-            .cornerRadius(12)
-            .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(Color.primary.opacity(0.1), lineWidth: 0.5)
-            )
-            .shadow(color: Color.black.opacity(0.2), radius: 10, x: 0, y: 5)
-            .padding(.top, 4)
-            .onAppear {
-                selectedIndex = -1
-            }
-            .onChange(of: tabManager.addressBarText) { _, newValue in
-                fetchSearchSuggestions(for: newValue)
-            }
-            .background(
-                NSEventView { event in
-                    if event.keyCode == 125 {
-                        selectedIndex = min(suggestions.count - 1, selectedIndex + 1)
-                        return true
-                    } else if event.keyCode == 126 {
-                        selectedIndex = max(0, selectedIndex - 1)
-                        return true
-                    } else if event.keyCode == 36 {
-                        if selectedIndex >= 0 && selectedIndex < suggestions.count {
-                            selectSuggestion(suggestions[selectedIndex])
-                            return true
-                        }
-                    }
-                    return false
-                }
-            )
-            .onTapGesture {
-                isFocused = false
+        Group {
+            if !cachedSuggestions.isEmpty {
+                suggestionsList
             }
         }
+        .onAppear {
+            selectedIndex = -1
+            cachedSuggestions = updateSuggestions()
+            lastQuery = query
+        }
+        .onChange(of: query) { _, newValue in
+            fetchSearchSuggestions(for: newValue)
+            if newValue != lastQuery {
+                cachedSuggestions = updateSuggestions()
+                lastQuery = newValue
+                selectedIndex = -1
+            }
+        }
+        .onChange(of: searchSuggestions) { _, _ in
+            cachedSuggestions = updateSuggestions()
+        }
+    }
+    
+    private var suggestionsList: some View {
+        ScrollView {
+            LazyVStack(spacing: 0) {
+                ForEach(0..<cachedSuggestions.count, id: \.self) { index in
+                    let suggestion = cachedSuggestions[index]
+                    SuggestionRow(
+                        suggestion: suggestion,
+                        isSelected: index == selectedIndex,
+                        query: query
+                    ) {
+                        selectSuggestion(suggestion)
+                    }
+                }
+            }
+        }
+        .frame(maxHeight: 280)
+        .background(.ultraThinMaterial)
+        .cornerRadius(12)
+        .shadow(color: .black.opacity(0.2), radius: 10, y: 5)
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Color.primary.opacity(0.1), lineWidth: 0.5)
+        )
+    }
+
+    private func dismissAndUnfocus() {
+        isFocused = false
+        NSApp.keyWindow?.makeFirstResponder(nil)
     }
 
     private func fetchSearchSuggestions(for query: String) {
@@ -133,13 +144,11 @@ struct AddressBarSuggestionsView: View {
 
         URLSession.shared.dataTask(with: url) { data, _, error in
             DispatchQueue.main.async {
-                isLoadingSuggestions = false
+                self.isLoadingSuggestions = false
                 guard let data = data, error == nil else { return }
                 do {
                     let decoded = try JSONDecoder().decode([SearchSuggestion].self, from: data)
-                    self.searchSuggestions = decoded.filter { suggestion in
-                        suggestion.phrase.lowercased().contains(trimmedQuery.lowercased())
-                    }
+                    self.searchSuggestions = decoded.filter { $0.phrase.lowercased().contains(trimmedQuery.lowercased()) }
                 } catch {
                     self.searchSuggestions = []
                 }
@@ -150,7 +159,7 @@ struct AddressBarSuggestionsView: View {
     private func selectSuggestion(_ suggestion: Suggestion) {
         tabManager.addressBarText = suggestion.url
         tabManager.loadCurrent()
-        isFocused = false
+        dismissAndUnfocus()
     }
 }
 
@@ -167,22 +176,16 @@ struct SuggestionRow: View {
                 FaviconView(urlString: suggestion.url, title: suggestion.title, size: 20)
 
                 VStack(alignment: .leading, spacing: 2) {
-                    HighlightedText(
-                        text: suggestion.title,
-                        highlight: query
-                    )
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(.primary)
-                    .lineLimit(1)
+                    HighlightedText(text: suggestion.title, highlight: query)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(.primary)
+                        .lineLimit(1)
 
                     if suggestion.type != .search {
-                        HighlightedText(
-                            text: suggestion.url,
-                            highlight: query
-                        )
-                        .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
+                        HighlightedText(text: suggestion.url, highlight: query)
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
                     }
                 }
 
@@ -206,40 +209,12 @@ struct SuggestionRow: View {
             }
             .padding(.vertical, 8)
             .padding(.horizontal, 12)
-            .background(isSelected || isHovered ? Color.primary.opacity(0.05) : Color.clear)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(isSelected || isHovered ? Color.primary.opacity(0.1) : .clear)
         }
         .buttonStyle(.plain)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(Rectangle())
         .onHover { isHovered = $0 }
-    }
-}
-
-struct NSEventView: NSViewRepresentable {
-    let onEvent: (NSEvent) -> Bool
-
-    func makeNSView(context: Context) -> NSView {
-        let view = EventView()
-        view.onEvent = onEvent
-        return view
-    }
-
-    func updateNSView(_ nsView: NSView, context: Context) {}
-
-    class EventView: NSView {
-        var onEvent: ((NSEvent) -> Bool)?
-        var monitor: Any?
-
-        override func viewDidMoveToWindow() {
-            if window != nil {
-                monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-                    if self?.onEvent?(event) == true {
-                        return nil
-                    }
-                    return event
-                }
-            } else if let monitor = monitor {
-                NSEvent.removeMonitor(monitor)
-                self.monitor = nil
-            }
-        }
     }
 }

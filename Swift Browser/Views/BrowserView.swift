@@ -30,6 +30,10 @@ struct BrowserView: View {
     @State private var selectedSearchIndex: Int = 0
     @FocusState private var isTabSearchFocused: Bool
     @FocusState private var isSidebarSearchFocused: Bool
+    
+    // Address Bar Suggestions State
+    @State private var selectedSuggestionIndex: Int = -1
+    @State private var keyEventMonitor: Any?
 
     init() {}
 
@@ -37,6 +41,7 @@ struct BrowserView: View {
         mainContentView
             .background(.ultraThinMaterial)
             .background(shortcuts)
+            .overlay(addressBarSuggestionsOverlay)
             .overlay(controlCenterMenuOverlay)
             .overlay(
                 Group {
@@ -80,7 +85,7 @@ struct BrowserView: View {
         ZStack {
             // Main Content Area
             mainContentArea
-            
+
             // Sidebar Overlay
             HStack {
                 SidebarView(
@@ -101,7 +106,7 @@ struct BrowserView: View {
                 }
             }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity) // Ensure full window coverage for overlays
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
     
     // MARK: - Main Content Area
@@ -146,6 +151,170 @@ struct BrowserView: View {
         .padding(.leading, 50) // Fixed padding for collapsed sidebar
     }
     
+    // MARK: - Address Bar Suggestions Overlay
+    @ViewBuilder
+    private var addressBarSuggestionsOverlay: some View {
+        if isAddressBarFocused {
+            // Background overlay to catch clicks outside suggestions
+            Color.clear
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    isAddressBarFocused = false
+                    NSApp.keyWindow?.makeFirstResponder(nil)
+                }
+                .overlay(
+                    VStack(spacing: 0) {
+                        // Position exactly at the bottom edge of the toolbar
+                        Color.clear
+                            .frame(height: AppSpacing.toolbarHeight - 8)
+                        
+                        // Center the suggestions under the address bar
+                        HStack {
+                            Spacer()
+                            
+                            AddressBarSuggestionsView(
+                                tabManager: tabManager,
+                                bookmarkManager: bookmarkManager,
+                                historyManager: historyManager,
+                                isFocused: Binding(
+                                    get: { isAddressBarFocused },
+                                    set: { isAddressBarFocused = $0 }
+                                ),
+                                selectedIndex: $selectedSuggestionIndex
+                            )
+                            .frame(minWidth: 400, idealWidth: 600, maxWidth: .infinity)
+                            
+                            Spacer()
+                        }
+                        .padding(ToolbarLayout.addressBarHorizontalPadding)
+                        
+                        Spacer()
+                    }
+                )
+                .onAppear {
+                    setupKeyboardMonitor()
+                }
+                .onDisappear {
+                    removeKeyboardMonitor()
+                }
+        }
+    }
+    
+    private func setupKeyboardMonitor() {
+        // Remove any existing monitor
+        removeKeyboardMonitor()
+        
+        // Setup local monitor for key events when suggestions are showing
+        keyEventMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            guard self.isAddressBarFocused else { return event }
+            
+            switch event.keyCode {
+            case 125: // Down arrow
+                self.handleSuggestionNavigation(direction: .down)
+                return nil // Consume event
+            case 126: // Up arrow
+                self.handleSuggestionNavigation(direction: .up)
+                return nil // Consume event
+            case 36: // Return
+                self.handleSuggestionSelection()
+                return nil // Consume event
+            case 53: // Escape
+                self.isAddressBarFocused = false
+                NSApp.keyWindow?.makeFirstResponder(nil)
+                return nil // Consume event
+            default:
+                return event // Pass through
+            }
+        }
+    }
+    
+    private func removeKeyboardMonitor() {
+        if let monitor = keyEventMonitor {
+            NSEvent.removeMonitor(monitor)
+            keyEventMonitor = nil
+        }
+    }
+    
+    private enum NavigationDirection {
+        case up, down
+    }
+    
+    private func handleSuggestionNavigation(direction: NavigationDirection) {
+        // Get current suggestion count
+        let query = tabManager.addressBarText.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else { return }
+        
+        // Build suggestions list to get accurate count
+        var suggestions: [(title: String, url: String)] = []
+        
+        // Add bookmarks
+        suggestions.append(contentsOf: bookmarkManager.bookmarks
+            .filter { $0.title.lowercased().contains(query) || $0.url.lowercased().contains(query) }
+            .prefix(5)
+            .map { (title: $0.title, url: $0.url) })
+        
+        // Add history
+        suggestions.append(contentsOf: historyManager.history
+            .filter { ($0.title?.lowercased().contains(query) ?? false) || $0.url.absoluteString.lowercased().contains(query) }
+            .prefix(5)
+            .map { (title: $0.title ?? "Untitled", url: $0.url.absoluteString) })
+        
+        // Add search option
+        suggestions.append((title: "Search with DuckDuckGo", url: query))
+        
+        let suggestionCount = min(suggestions.count, 8)
+        
+        switch direction {
+        case .down:
+            selectedSuggestionIndex = min(suggestionCount - 1, selectedSuggestionIndex + 1)
+        case .up:
+            selectedSuggestionIndex = max(0, selectedSuggestionIndex - 1)
+        }
+    }
+    
+    private func handleSuggestionSelection() {
+        let query = tabManager.addressBarText.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else {
+            isAddressBarFocused = false
+            NSApp.keyWindow?.makeFirstResponder(nil)
+            tabManager.loadCurrent()
+            return
+        }
+        
+        // Build suggestions list to find the selected one
+        var suggestions: [(title: String, url: String)] = []
+        
+        // Add bookmarks
+        suggestions.append(contentsOf: bookmarkManager.bookmarks
+            .filter { $0.title.lowercased().contains(query) || $0.url.lowercased().contains(query) }
+            .prefix(5)
+            .map { (title: $0.title, url: $0.url) })
+        
+        // Add history
+        suggestions.append(contentsOf: historyManager.history
+            .filter { ($0.title?.lowercased().contains(query) ?? false) || $0.url.absoluteString.lowercased().contains(query) }
+            .prefix(5)
+            .map { (title: $0.title ?? "Untitled", url: $0.url.absoluteString) })
+        
+        // Add search option
+        suggestions.append((title: "Search with DuckDuckGo", url: query))
+        
+        suggestions = Array(suggestions.prefix(8))
+        
+        if selectedSuggestionIndex >= 0 && selectedSuggestionIndex < suggestions.count {
+            // Load selected suggestion
+            tabManager.addressBarText = suggestions[selectedSuggestionIndex].url
+            tabManager.loadCurrent()
+        } else {
+            // No selection, load current text
+            tabManager.loadCurrent()
+        }
+        
+        isAddressBarFocused = false
+        NSApp.keyWindow?.makeFirstResponder(nil)
+        selectedSuggestionIndex = -1
+    }
+
     // MARK: - Control Center Menu Overlay
     @ViewBuilder
     private var controlCenterMenuOverlay: some View {
