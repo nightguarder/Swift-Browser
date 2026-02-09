@@ -10,7 +10,7 @@ import WebKit
 import Combine
 
 // Observable store that owns the WKWebView and reports navigation state
-public final class WebViewManager: NSObject, ObservableObject, WKNavigationDelegate, WKScriptMessageHandler {
+public final class WebViewManager: NSObject, ObservableObject, WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandler {
     public let webView: WKWebView
     @Published public var canGoBack: Bool = false
     @Published public var canGoForward: Bool = false
@@ -20,17 +20,30 @@ public final class WebViewManager: NSObject, ObservableObject, WKNavigationDeleg
     @Published public var currentURL: URL?
     @Published public var pageTitle: String?
 
+    /// Closure called when the web view requests to open a new tab/window (e.g. window.open)
+    public var onNewTabRequested: ((WKWebViewConfiguration) -> WKWebView?)?
+    
+    /// Closure called when the web view requests to close (e.g. window.close)
+    public var onCloseRequested: (() -> Void)?
+    
+    /// Closure called when media playback state changes (isPlaying: Bool)
+    public var onMediaPlaybackStateChanged: ((Bool) -> Void)?
 
     private var cancellables = Set<AnyCancellable>()
+    private var mediaCheckTimer: Timer?
+    private var lastMediaPlaybackState: Bool = false
 
     private var isTornDown = false
     private let dataStore: WKWebsiteDataStore
     private let isPrivateSpace: Bool
 
-    public init(dataStore: WKWebsiteDataStore = .default(), isPrivateSpace: Bool = false) {
+    private let defaultUserAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15"
+
+    public init(dataStore: WKWebsiteDataStore = .default(), isPrivateSpace: Bool = false, configuration: WKWebViewConfiguration? = nil) {
         self.dataStore = dataStore
         self.isPrivateSpace = isPrivateSpace
-        let config = WKWebViewConfiguration()
+        
+        let config = configuration ?? WKWebViewConfiguration()
         config.websiteDataStore = dataStore
         
         // Disable media autoplay and require user interaction
@@ -92,11 +105,17 @@ public final class WebViewManager: NSObject, ObservableObject, WKNavigationDeleg
     private func setupWebView() {
         webView.allowsBackForwardNavigationGestures = true
         webView.navigationDelegate = self
+        webView.uiDelegate = self
+        
+        // Set standard User Agent to avoid "Disallowed User Agent" errors on Google/etc
+        webView.customUserAgent = defaultUserAgent
         
         // Disable aggressive QuickLook preview behavior which can cause leaks
         webView.allowsMagnification = false
         
         // Use WeakScriptMessageHandler to avoid retain cycle
+        // Remove existing handler first to avoid crash if the configuration was inherited/reused
+        webView.configuration.userContentController.removeScriptMessageHandler(forName: "logger")
         webView.configuration.userContentController.add(WeakScriptMessageHandler(self), name: "logger")
         
         // Enable Web Inspector for debugging (if enabled in settings)
@@ -152,6 +171,34 @@ public final class WebViewManager: NSObject, ObservableObject, WKNavigationDeleg
                 }
             }
             .store(in: &cancellables)
+        
+        // Monitor media playback state changes
+        startMediaPlaybackMonitoring()
+    }
+    
+    private func startMediaPlaybackMonitoring() {
+        guard mediaCheckTimer == nil else { return }
+        
+        mediaCheckTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: true) { [weak self] _ in
+            guard let self = self else { return }
+            
+            if #available(macOS 12.0, *) {
+                self.webView.requestMediaPlaybackState { [weak self] state in
+                    guard let self = self else { return }
+                    let isPlaying = (state == .playing)
+                    
+                    if isPlaying != self.lastMediaPlaybackState {
+                        self.lastMediaPlaybackState = isPlaying
+                        self.onMediaPlaybackStateChanged?(isPlaying)
+                    }
+                }
+            }
+        }
+    }
+    
+    private func stopMediaPlaybackMonitoring() {
+        mediaCheckTimer?.invalidate()
+        mediaCheckTimer = nil
     }
 
     deinit {
@@ -176,6 +223,9 @@ public final class WebViewManager: NSObject, ObservableObject, WKNavigationDeleg
             return
         }
 
+        stopMediaPlaybackMonitoring()
+        onMediaPlaybackStateChanged?(false) // Notify that media stopped
+        
         Self.teardownWebView(webView, cancellables: &cancellables, isTornDown: &isTornDown)
     }
 
@@ -258,6 +308,17 @@ public final class WebViewManager: NSObject, ObservableObject, WKNavigationDeleg
         decisionHandler(.allow)
     }
 
+    // WKUIDelegate
+    public func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration, for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
+        // Handle window.open by calling our new tab callback
+        return onNewTabRequested?(configuration)
+    }
+    
+    public func webViewDidClose(_ webView: WKWebView) {
+        // Handle window.close by calling our close callback
+        onCloseRequested?()
+    }
+
     public func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
         #if DEBUG
         print("DEBUG: WebView didFail navigation: \(error.localizedDescription)")
@@ -285,7 +346,7 @@ public final class WebViewManager: NSObject, ObservableObject, WKNavigationDeleg
     private func applyContentBlockerIfNeeded() {
         let isEnabled = UserDefaults.standard.bool(forKey: "contentBlockerEnabled")
         if isEnabled {
-            ContentBlockerManager.shared.applyBlocklist(to: webView.configuration) { }
+            ContentBlockerManager.shared.applyBlocklist(to: webView.configuration) { _ in }
         }
     }
 
@@ -319,13 +380,9 @@ public final class WebViewManager: NSObject, ObservableObject, WKNavigationDeleg
         let userContentController = webView.configuration.userContentController
         
         if enabled {
-            ContentBlockerManager.shared.applyBlocklist(to: webView.configuration) { }
+            ContentBlockerManager.shared.applyBlocklist(to: webView.configuration) { _ in }
         } else {
-            WKContentRuleListStore.default().lookUpContentRuleList(forIdentifier: "SwiftBrowserBlockList") { ruleList, _ in
-                if let ruleList = ruleList {
-                    userContentController.remove(ruleList)
-                }
-            }
+            ContentBlockerManager.shared.removeBlocklist(from: userContentController)
         }
         UserDefaults.standard.set(enabled, forKey: "contentBlockerEnabled")
     }

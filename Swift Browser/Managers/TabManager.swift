@@ -18,6 +18,12 @@ public final class TabManager: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
 
     private var idleDiscardTimerCancellable: AnyCancellable?
+    
+    /// Tracks tabs playing media across all spaces - these should never be discarded
+    @Published public var mediaPlayingTabs: Set<UUID> = []
+    
+    /// Timer for discarding background space WebViews after switching
+    private var backgroundSpaceDiscardWorkItem: DispatchWorkItem?
 
     private var tabDiscardingEnabled: Bool {
         if UserDefaults.standard.object(forKey: "tabDiscardingEnabled") == nil {
@@ -46,6 +52,8 @@ public final class TabManager: ObservableObject {
         }
         idleDiscardTimerCancellable?.cancel()
         idleDiscardTimerCancellable = nil
+        backgroundSpaceDiscardWorkItem?.cancel()
+        backgroundSpaceDiscardWorkItem = nil
         cancellables.removeAll()
     }
 
@@ -102,9 +110,30 @@ public final class TabManager: ObservableObject {
         }
     }
 
+    /// Handles opening a new tab from a WebKit-provided configuration (e.g. window.open)
+    public func addTab(configuration: WKWebViewConfiguration, in spaceId: UUID? = nil) -> WKWebView? {
+        let sid = spaceId ?? currentTab?.spaceId ?? SpaceManager.shared.activeSpaceId
+        let space = SpaceManager.shared.spaces.first(where: { $0.id == sid }) ?? SpaceManager.shared.activeSpace
+        
+        let webViewManager = WebViewManager(dataStore: configuration.websiteDataStore, isPrivateSpace: space.isPrivate, configuration: configuration)
+        let newTab = BrowserTab(title: "New Tab", url: "", spaceId: sid, webView: webViewManager)
+        
+        setupManagerCallbacks(webViewManager, for: newTab)
+        
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+            tabs.append(newTab)
+            currentTab = newTab
+        }
+        
+        return webViewManager.webView
+    }
+
     public func closeTab(_ tab: BrowserTab) {
         let closingId = tab.id
         let wasCurrent = currentTab?.id == closingId
+
+        // Remove from media playing tracking
+        mediaPlayingTabs.remove(closingId)
 
         // Proactively tear down WebKit resources before releasing the tab.
         tab.webView?.teardown()
@@ -168,6 +197,16 @@ public final class TabManager: ObservableObject {
     public func switchSpace(to spaceId: UUID) {
         let availableSpaceIds = Set(SpaceManager.shared.spaces.map { $0.id })
         guard availableSpaceIds.contains(spaceId) else { return }
+        
+        // Store previous space ID before switching
+        let previousSpaceId = SpaceManager.shared.activeSpaceId
+        
+        // FIX: Clear currentTab if it doesn't belong to the new space
+        // This ensures we don't have a "ghost" current tab from another space
+        if let current = currentTab, current.spaceId != spaceId {
+            // Don't tear down yet - just clear the reference
+            currentTab = nil
+        }
 
         SpaceManager.shared.switchSpace(to: spaceId)
 
@@ -177,6 +216,53 @@ public final class TabManager: ObservableObject {
         } else {
             addTab(in: spaceId)
         }
+        
+        // Background space discarding: Schedule discarding of previous space WebViews after delay
+        if previousSpaceId != spaceId {
+            scheduleBackgroundSpaceDiscarding(previousSpaceId: previousSpaceId)
+        }
+    }
+    
+    /// Schedules discarding of WebViews from a background space after a delay
+    private func scheduleBackgroundSpaceDiscarding(previousSpaceId: UUID) {
+        // Cancel any existing scheduled discard
+        backgroundSpaceDiscardWorkItem?.cancel()
+        
+        // Create new work item to discard background space WebViews after 10 seconds
+        let workItem = DispatchWorkItem { [weak self] in
+            guard let self = self else { return }
+            
+            print("TabManager: Discarding WebViews from background space \(previousSpaceId)")
+            
+            // Get current active space to make sure we don't discard it
+            let activeSpaceId = SpaceManager.shared.activeSpaceId
+            
+            var discardedCount = 0
+            for tab in self.tabs {
+                // Only discard tabs from the previous space (not current space)
+                guard tab.spaceId == previousSpaceId else { continue }
+                guard tab.spaceId != activeSpaceId else { continue } // Safety check
+                guard tab.webView != nil else { continue }
+                
+                // Don't discard tabs playing media (they might be background music)
+                guard !self.mediaPlayingTabs.contains(tab.id) else { continue }
+                
+                // Don't discard if it's the current tab
+                guard tab.id != self.currentTab?.id else { continue }
+                
+                self.discardTabWebView(tab)
+                discardedCount += 1
+            }
+            
+            if discardedCount > 0 {
+                print("TabManager: Discarded \(discardedCount) WebViews from background space")
+            }
+        }
+        
+        backgroundSpaceDiscardWorkItem = workItem
+        
+        // Schedule after 10 seconds - gives user time to switch back if accidental
+        DispatchQueue.main.asyncAfter(deadline: .now() + 10.0, execute: workItem)
     }
 
     public func nextTab() {
@@ -202,6 +288,7 @@ public final class TabManager: ObservableObject {
         let dataStore = SpaceManager.shared.websiteDataStore(for: space)
         let webView = WebViewManager(dataStore: dataStore, isPrivateSpace: space.isPrivate)
         let newTab = BrowserTab(title: tab.title, url: tab.url, spaceId: tab.spaceId, webView: webView)
+        setupManagerCallbacks(webView, for: newTab)
         
         // Load same content if available
         if !tab.url.isEmpty {
@@ -326,6 +413,7 @@ public final class TabManager: ObservableObject {
             let space = SpaceManager.shared.spaces.first(where: { $0.id == tab.spaceId }) ?? SpaceManager.shared.activeSpace
             let dataStore = SpaceManager.shared.websiteDataStore(for: space)
             let manager = WebViewManager(dataStore: dataStore, isPrivateSpace: space.isPrivate)
+            setupManagerCallbacks(manager, for: tab)
             tab.webView = manager
             manager.load(tab.url)
         }
@@ -340,8 +428,29 @@ public final class TabManager: ObservableObject {
         let space = SpaceManager.shared.spaces.first(where: { $0.id == tab.spaceId }) ?? SpaceManager.shared.activeSpace
         let dataStore = SpaceManager.shared.websiteDataStore(for: space)
         let manager = WebViewManager(dataStore: dataStore, isPrivateSpace: space.isPrivate)
+        setupManagerCallbacks(manager, for: tab)
         tab.webView = manager
         return manager
+    }
+
+    private func setupManagerCallbacks(_ manager: WebViewManager, for tab: BrowserTab) {
+        manager.onNewTabRequested = { [weak self] configuration in
+            return self?.addTab(configuration: configuration, in: tab.spaceId)
+        }
+        
+        manager.onCloseRequested = { [weak self] in
+            self?.closeTab(tab)
+        }
+        
+        // Monitor media playback state changes
+        manager.onMediaPlaybackStateChanged = { [weak self] isPlaying in
+            guard let self = self else { return }
+            if isPlaying {
+                self.mediaPlayingTabs.insert(tab.id)
+            } else {
+                self.mediaPlayingTabs.remove(tab.id)
+            }
+        }
     }
 
     private func discardNonWebTabs() {
@@ -394,6 +503,9 @@ public final class TabManager: ObservableObject {
                 if webView.cameraCaptureState != .none { continue }
                 if webView.microphoneCaptureState != .none { continue }
 
+                // PRIORITY: Don't discard tabs playing media (even in other spaces)
+                if mediaPlayingTabs.contains(tab.id) { continue }
+
                 // Don't discard tabs that are currently playing media.
                 let tabID = tab.id
                 webView.requestMediaPlaybackState { [weak self] (state: WKMediaPlaybackState) in
@@ -408,7 +520,11 @@ public final class TabManager: ObservableObject {
                     let idle2 = now2.timeIntervalSince(liveTab.lastUsedAt)
                     guard idle2 >= self.idleDiscardInterval else { return }
 
-                    if state == .playing { return }
+                    if state == .playing { 
+                        // Track this tab as playing media
+                        self.mediaPlayingTabs.insert(tabID)
+                        return 
+                    }
 
                     self.discardTabWebView(liveTab)
                 }
