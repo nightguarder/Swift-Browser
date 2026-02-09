@@ -346,7 +346,7 @@ public final class WebViewManager: NSObject, ObservableObject, WKNavigationDeleg
     private func applyContentBlockerIfNeeded() {
         let isEnabled = UserDefaults.standard.bool(forKey: "contentBlockerEnabled")
         if isEnabled {
-            ContentBlockerManager.shared.applyBlocklist(to: webView.configuration) { _ in }
+            ContentBlockerManager.shared.applyBlocklist(to: webView.configuration) {}
         }
     }
 
@@ -380,7 +380,7 @@ public final class WebViewManager: NSObject, ObservableObject, WKNavigationDeleg
         let userContentController = webView.configuration.userContentController
         
         if enabled {
-            ContentBlockerManager.shared.applyBlocklist(to: webView.configuration) { _ in }
+            ContentBlockerManager.shared.applyBlocklist(to: webView.configuration) {}
         } else {
             ContentBlockerManager.shared.removeBlocklist(from: userContentController)
         }

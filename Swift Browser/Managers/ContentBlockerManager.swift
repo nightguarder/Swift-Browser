@@ -79,4 +79,10 @@ public final class ContentBlockerManager {
             completion()
         }
     }
+
+    public func removeBlocklist(from userContentController: WKUserContentController) {
+        guard let ruleList = compiledRuleList else { return }
+        userContentController.remove(ruleList)
+        compiledRuleList = nil
+    }
 }
