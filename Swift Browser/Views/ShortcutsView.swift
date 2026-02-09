@@ -18,6 +18,9 @@ struct ShortcutsView: View {
         ShortcutItem(title: "Close Tab", keys: "⌘ W", category: "Tabs"),
         ShortcutItem(title: "Next Tab", keys: "⌘ ⇧ ]", category: "Tabs"),
         ShortcutItem(title: "Previous Tab", keys: "⌘ ⇧ [", category: "Tabs"),
+        ShortcutItem(title: "Next Tab (Ctrl)", keys: "⌃ Tab", category: "Tabs"),
+        ShortcutItem(title: "Previous Tab (Ctrl)", keys: "⌃ ⇧ Tab", category: "Tabs"),
+        ShortcutItem(title: "Duplicate Tab", keys: "⌘ D", category: "Tabs"),
         ShortcutItem(title: "Switch to Tab 1-9", keys: "⌘ 1-9", category: "Tabs"),
         
         // Navigation
@@ -39,7 +42,8 @@ struct ShortcutsView: View {
         // Tools
         ShortcutItem(title: "Toggle Find in Page", keys: "⌘ F", category: "Tools"),
         ShortcutItem(title: "Toggle Tab Search", keys: "⌘ K", category: "Tools"),
-        ShortcutItem(title: "Copy Page URL", keys: "⇧ ⌘ C", category: "Tools"),
+        ShortcutItem(title: "Copy Page URL", keys: "⌘ ⌥ C", category: "Tools"),
+        ShortcutItem(title: "Web Inspector", keys: "F12 / ⌘ ⌥ I", category: "Tools"),
     ]
     
     private var filteredShortcuts: [ShortcutItem] {

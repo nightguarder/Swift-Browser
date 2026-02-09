@@ -27,6 +27,10 @@ public struct ControlCenterMenuView: View {
                 tabManager.openBookmarks()
             }
             
+            MenuItem(icon: "ladybug.fill", title: "Cookies", isExpanded: $isExpanded) {
+                tabManager.openCookies()
+            }
+            
             MenuItem(icon: "keyboard", title: "Shortcuts", isExpanded: $isExpanded) {
                 tabManager.openShortcuts()
             }
