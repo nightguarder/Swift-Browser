@@ -166,14 +166,15 @@ public final class TabManager: ObservableObject {
     }
 
     public func switchSpace(to spaceId: UUID) {
+        let availableSpaceIds = Set(SpaceManager.shared.spaces.map { $0.id })
+        guard availableSpaceIds.contains(spaceId) else { return }
+
         SpaceManager.shared.switchSpace(to: spaceId)
-        
-        // Update current tab to the last used tab in this space
+
         let spaceTabs = tabs.filter { $0.spaceId == spaceId }
         if let lastUsed = spaceTabs.max(by: { ($0.lastUsedAt ?? Date.distantPast) < ($1.lastUsedAt ?? Date.distantPast) }) {
             switchToTab(lastUsed)
         } else {
-            // If no tabs exist in this space, create a new one
             addTab(in: spaceId)
         }
     }
@@ -199,7 +200,7 @@ public final class TabManager: ObservableObject {
     public func duplicate(_ tab: BrowserTab) {
         let space = SpaceManager.shared.spaces.first(where: { $0.id == tab.spaceId }) ?? SpaceManager.shared.activeSpace
         let dataStore = SpaceManager.shared.websiteDataStore(for: space)
-        let webView = WebViewManager(dataStore: dataStore)
+        let webView = WebViewManager(dataStore: dataStore, isPrivateSpace: space.isPrivate)
         let newTab = BrowserTab(title: tab.title, url: tab.url, spaceId: tab.spaceId, webView: webView)
         
         // Load same content if available
@@ -324,7 +325,7 @@ public final class TabManager: ObservableObject {
         if tab.webView == nil {
             let space = SpaceManager.shared.spaces.first(where: { $0.id == tab.spaceId }) ?? SpaceManager.shared.activeSpace
             let dataStore = SpaceManager.shared.websiteDataStore(for: space)
-            let manager = WebViewManager(dataStore: dataStore)
+            let manager = WebViewManager(dataStore: dataStore, isPrivateSpace: space.isPrivate)
             tab.webView = manager
             manager.load(tab.url)
         }
@@ -338,7 +339,7 @@ public final class TabManager: ObservableObject {
 
         let space = SpaceManager.shared.spaces.first(where: { $0.id == tab.spaceId }) ?? SpaceManager.shared.activeSpace
         let dataStore = SpaceManager.shared.websiteDataStore(for: space)
-        let manager = WebViewManager(dataStore: dataStore)
+        let manager = WebViewManager(dataStore: dataStore, isPrivateSpace: space.isPrivate)
         tab.webView = manager
         return manager
     }
@@ -499,10 +500,17 @@ public final class TabManager: ObservableObject {
         
         self.tabs = restoredTabs
         
-        // Restore active space if valid
+        // Restore active space if valid and not private
         if let activeSpaceId = session.activeSpaceId,
-           availableSpaceIds.contains(activeSpaceId) {
+           availableSpaceIds.contains(activeSpaceId),
+           let space = SpaceManager.shared.spaces.first(where: { $0.id == activeSpaceId }),
+           !space.isPrivate {
             SpaceManager.shared.switchSpace(to: activeSpaceId)
+        } else {
+            // Switch to first non-private space
+            if let defaultSpace = SpaceManager.shared.spaces.first(where: { !$0.isPrivate }) {
+                SpaceManager.shared.switchSpace(to: defaultSpace.id)
+            }
         }
         
         // Restore current tab by index

@@ -69,7 +69,7 @@ public struct SidebarView: View {
 
                 // Space Switcher
                 ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
+                    HStack(spacing: 4) {
                         ForEach(spaceManager.spaces) { space in
                             SpaceIcon(
                                 space: space,
@@ -81,10 +81,10 @@ public struct SidebarView: View {
                             )
                         }
                     }
-                    .padding(.horizontal, isSidebarHovered ? 12 : 6)
+                    .padding(.horizontal, isSidebarHovered ? 8 : 4)
                 }
-                .frame(height: 50)
-                .padding(.top, 4)
+                .frame(height: 48)
+                .padding(.top, 2)
 
                 Divider()
                     .padding(.horizontal, 8)
@@ -231,36 +231,44 @@ struct SpaceIcon: View {
     let onSelect: () -> Void
     
     var body: some View {
-        Button(action: onSelect) {
-            ZStack {
-                Circle()
-                    .fill(isActive ? space.color : Color.clear)
-                    .frame(width: 32, height: 32)
-                
-                Image(systemName: space.icon)
-                    .font(AppFont.sidebarSpaceIcon)
-                    .foregroundColor(isActive ? .white : .primary)
+        VStack(spacing: 1) {
+            Button(action: onSelect) {
+                ZStack {
+                    Circle()
+                        .fill(isActive ? space.color : Color.clear)
+                        .frame(width: 24, height: 24)
+                    
+                    Image(systemName: space.icon)
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(isActive ? .white : .primary)
+                }
+                .frame(width: 28, height: 28)
+                .background(isActive ? Color.clear : Color.primary.opacity(0.05))
+                .clipShape(Circle())
+                .overlay(
+                    Circle()
+                        .stroke(space.color.opacity(0.3), lineWidth: isActive ? 1.5 : 0)
+                )
             }
-            .frame(width: 40, height: 40)
-            .background(isActive ? Color.clear : Color.primary.opacity(0.05))
-            .clipShape(Circle())
-            .overlay(
-                Circle()
-                    .stroke(space.color.opacity(0.3), lineWidth: isActive ? 2 : 0)
-            )
-        }
-        .buttonStyle(.plain)
-        .help(space.name)
-        .overlay(alignment: .bottom) {
+            .buttonStyle(.plain)
+            .help(space.name)
+            
+            // Space name label
             if isSidebarHovered && isActive {
                 Text(space.name)
-                    .font(AppFont.sidebarBadge)
-                    .padding(.horizontal, 4)
+                    .font(.system(size: 9, weight: .medium))
+                    .lineLimit(1)
+                    .padding(.horizontal, 3)
+                    .padding(.vertical, 1)
                     .background(Color.primary.opacity(0.1))
-                    .cornerRadius(4)
-                    .offset(y: 12)
+                    .cornerRadius(3)
+            } else {
+                // Placeholder to maintain consistent spacing
+                Color.clear
+                    .frame(height: 12)
             }
         }
+        .frame(width: 40)
     }
 }
 

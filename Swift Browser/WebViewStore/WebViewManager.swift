@@ -25,9 +25,11 @@ public final class WebViewManager: NSObject, ObservableObject, WKNavigationDeleg
 
     private var isTornDown = false
     private let dataStore: WKWebsiteDataStore
+    private let isPrivateSpace: Bool
 
-    public init(dataStore: WKWebsiteDataStore = .default()) {
+    public init(dataStore: WKWebsiteDataStore = .default(), isPrivateSpace: Bool = false) {
         self.dataStore = dataStore
+        self.isPrivateSpace = isPrivateSpace
         let config = WKWebViewConfiguration()
         config.websiteDataStore = dataStore
         
@@ -269,9 +271,8 @@ public final class WebViewManager: NSObject, ObservableObject, WKNavigationDeleg
     }
     
     public func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-        // Record history
-        if let url = webView.url, !dataStore.isPersistent == false {
-            // Only record history if not in an ephemeral/private data store
+        // Record history only if not in a private space
+        if let url = webView.url, !isPrivateSpace {
             let pageTitle = webView.title?.isEmpty == false ? webView.title! : extractTitleFromURL(url)
             HistoryManager.shared.addVisit(url: url, title: pageTitle)
         }

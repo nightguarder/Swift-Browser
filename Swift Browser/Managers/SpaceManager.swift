@@ -35,7 +35,7 @@ public class SpaceManager: ObservableObject {
     }
     
     public var activeSpace: Space {
-        spaces.first { $0.id == activeSpaceId } ?? spaces[0]
+        spaces.first { $0.id == activeSpaceId } ?? spaces.first ?? Space(name: "General", icon: "square.grid.2x2")
     }
     
     public func websiteDataStore(for space: Space) -> WKWebsiteDataStore {

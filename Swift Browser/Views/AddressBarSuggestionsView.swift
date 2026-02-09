@@ -4,7 +4,6 @@ struct AddressBarSuggestionsView: View {
     @ObservedObject var tabManager: TabManager
     @ObservedObject var bookmarkManager: BookmarkManager
     @ObservedObject var historyManager: HistoryManager
-    @StateObject private var spaceManager = SpaceManager.shared
     @Binding var isFocused: Bool
     @Binding var selectedIndex: Int
     @State private var searchSuggestions: [SearchSuggestion] = []
@@ -12,8 +11,20 @@ struct AddressBarSuggestionsView: View {
     @State private var cachedSuggestions: [Suggestion] = []
     @State private var lastQuery: String = ""
     
+    // Capture space ID at view creation to prevent race conditions when switching spaces
+    private let currentSpaceId: UUID
+    
     private var isPrivateSpace: Bool {
-        spaceManager.activeSpace.isPrivate
+        SpaceManager.shared.spaces.first { $0.id == currentSpaceId }?.isPrivate ?? false
+    }
+    
+    init(tabManager: TabManager, bookmarkManager: BookmarkManager, historyManager: HistoryManager, isFocused: Binding<Bool>, selectedIndex: Binding<Int>) {
+        self.tabManager = tabManager
+        self.bookmarkManager = bookmarkManager
+        self.historyManager = historyManager
+        self._isFocused = isFocused
+        self._selectedIndex = selectedIndex
+        self.currentSpaceId = SpaceManager.shared.activeSpaceId
     }
 
     struct Suggestion: Identifiable, Equatable, Hashable {

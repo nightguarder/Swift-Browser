@@ -24,6 +24,37 @@ public struct Space: Identifiable, Codable, Equatable {
     }
     
     public var color: Color {
-        Color(colorName)
+        switch colorName.lowercased() {
+        case "purple":
+            return .purple
+        case "orange":
+            return .orange
+        case "blue":
+            return .blue
+        case "accentcolor":
+            return .accentColor
+        case "red":
+            return .red
+        case "green":
+            return .green
+        case "yellow":
+            return .yellow
+        case "pink":
+            return .pink
+        case "cyan":
+            return .cyan
+        case "indigo":
+            return .indigo
+        case "teal":
+            return .teal
+        case "mint":
+            return .mint
+        case "brown":
+            return .brown
+        case "gray", "grey":
+            return .gray
+        default:
+            return .accentColor
+        }
     }
 }

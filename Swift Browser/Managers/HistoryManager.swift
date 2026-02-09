@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import WebKit
 
 class HistoryManager: ObservableObject {
     static let shared = HistoryManager()
@@ -28,6 +29,11 @@ class HistoryManager: ObservableObject {
     }
     
     func addVisit(url: URL, title: String?) {
+        // Guard: Don't record history for private spaces
+        guard let spaceId = activeSpaceId,
+              let space = SpaceManager.shared.spaces.first(where: { $0.id == spaceId }),
+              !space.isPrivate else { return }
+        
         let item = HistoryItem(url: url, title: title, visitDate: Date())
         
         DispatchQueue.main.async { [weak self] in
