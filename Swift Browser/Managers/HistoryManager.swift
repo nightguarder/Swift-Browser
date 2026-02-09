@@ -5,11 +5,25 @@ class HistoryManager: ObservableObject {
     static let shared = HistoryManager()
     
     @Published var history: [HistoryItem] = []
+    private var activeSpaceId: UUID?
     
-    private let storageKey = "browserHistory"
+    private let baseStorageKey = "browserHistory"
+    private var storageKey: String {
+        if let id = activeSpaceId {
+            return "\(baseStorageKey)_\(id.uuidString)"
+        }
+        return baseStorageKey
+    }
+    
     private var saveWorkItem: DispatchWorkItem?
     
     private init() {
+        // Initial load will happen when activeSpaceId is set
+    }
+    
+    func setSpace(_ spaceId: UUID) {
+        guard activeSpaceId != spaceId else { return }
+        activeSpaceId = spaceId
         loadHistory()
     }
     
@@ -24,8 +38,8 @@ class HistoryManager: ObservableObject {
             }
             self.history.insert(item, at: 0)
             
-            if self.history.count > 1000 {
-                self.history = Array(self.history.prefix(1000))
+            if self.history.count > 2000 {
+                self.history = Array(self.history.prefix(2000))
             }
             
             self.scheduleSave()

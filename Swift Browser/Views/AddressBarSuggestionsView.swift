@@ -4,12 +4,17 @@ struct AddressBarSuggestionsView: View {
     @ObservedObject var tabManager: TabManager
     @ObservedObject var bookmarkManager: BookmarkManager
     @ObservedObject var historyManager: HistoryManager
+    @StateObject private var spaceManager = SpaceManager.shared
     @Binding var isFocused: Bool
     @Binding var selectedIndex: Int
     @State private var searchSuggestions: [SearchSuggestion] = []
     @State private var isLoadingSuggestions = false
     @State private var cachedSuggestions: [Suggestion] = []
     @State private var lastQuery: String = ""
+    
+    private var isPrivateSpace: Bool {
+        spaceManager.activeSpace.isPrivate
+    }
 
     struct Suggestion: Identifiable, Equatable, Hashable {
         let id = UUID()
@@ -52,15 +57,21 @@ struct AddressBarSuggestionsView: View {
 
         var result: [Suggestion] = []
 
-        result.append(contentsOf: bookmarkManager.bookmarks
-            .filter { $0.title.lowercased().contains(currentQuery) || $0.url.lowercased().contains(currentQuery) }
-            .prefix(5)
-            .map { Suggestion(title: $0.title, url: $0.url, type: .bookmark, isSearch: false) })
+        // Only show history and bookmarks in non-private spaces
+        if !isPrivateSpace {
+            result.append(contentsOf: bookmarkManager.bookmarks
+                .filter { $0.title.lowercased().contains(currentQuery) || $0.url.lowercased().contains(currentQuery) }
+                .prefix(5)
+                .map { Suggestion(title: $0.title, url: $0.url, type: .bookmark, isSearch: false) })
 
-        result.append(contentsOf: historyManager.history
-            .filter { ($0.title?.lowercased().contains(currentQuery) ?? false) || $0.url.absoluteString.lowercased().contains(currentQuery) }
-            .prefix(5)
-            .map { Suggestion(title: $0.title ?? "Untitled", url: $0.url.absoluteString, type: .history, isSearch: false) })
+            result.append(contentsOf: historyManager.history
+                .filter { ($0.title?.lowercased().contains(currentQuery) ?? false) || $0.url.absoluteString.lowercased().contains(currentQuery) }
+                .prefix(5)
+                .map { 
+                    let title = $0.title?.isEmpty == false ? $0.title! : extractTitleFromURL($0.url)
+                    return Suggestion(title: title, url: $0.url.absoluteString, type: .history, isSearch: false) 
+                })
+        }
 
         result.append(contentsOf: searchSuggestions.prefix(5)
             .map { Suggestion(title: $0.phrase, url: $0.phrase, type: .search, isSearch: true) })
@@ -160,6 +171,32 @@ struct AddressBarSuggestionsView: View {
         tabManager.addressBarText = suggestion.url
         tabManager.loadCurrent()
         dismissAndUnfocus()
+    }
+
+    // Extract a readable title from URL when page title is not available
+    private func extractTitleFromURL(_ url: URL) -> String {
+        // Try to use the last path component if it's not empty
+        let lastComponent = url.lastPathComponent
+        if !lastComponent.isEmpty && lastComponent != "/" {
+            // Remove file extension if present
+            let withoutExtension = (lastComponent as NSString).deletingPathExtension
+            if !withoutExtension.isEmpty {
+                // Convert kebab-case or snake_case to spaces and capitalize
+                return withoutExtension
+                    .replacingOccurrences(of: "-", with: " ")
+                    .replacingOccurrences(of: "_", with: " ")
+                    .capitalized
+            }
+        }
+
+        // Fallback to host name
+        if let host = url.host {
+            // Remove www. prefix if present
+            return host.replacingOccurrences(of: "^www\\.", with: "", options: .regularExpression)
+        }
+
+        // Final fallback
+        return url.absoluteString
     }
 }
 

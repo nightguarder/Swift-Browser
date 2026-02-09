@@ -24,16 +24,30 @@ public struct Bookmark: Identifiable, Codable {
 public final class BookmarkManager: ObservableObject {
     public static let shared = BookmarkManager()
     @Published public var bookmarks: [Bookmark] = []
+    private var activeSpaceId: UUID?
     
     public var folders: [String] {
         let allFolders = bookmarks.compactMap { $0.folder }
         return Array(Set(allFolders)).sorted()
     }
     
-    private let key = "Bookmarks"
+    private let baseKey = "Bookmarks"
+    private var storageKey: String {
+        if let id = activeSpaceId {
+            return "\(baseKey)_\(id.uuidString)"
+        }
+        return baseKey
+    }
+    
     private var saveWorkItem: DispatchWorkItem?
     
     init() {
+        // Initial load will happen when activeSpaceId is set
+    }
+    
+    public func setSpace(_ spaceId: UUID) {
+        guard activeSpaceId != spaceId else { return }
+        activeSpaceId = spaceId
         load()
     }
     
@@ -95,14 +109,16 @@ public final class BookmarkManager: ObservableObject {
     
     private func save() {
         if let data = try? JSONEncoder().encode(bookmarks) {
-            UserDefaults.standard.set(data, forKey: key)
+            UserDefaults.standard.set(data, forKey: storageKey)
         }
     }
     
     private func load() {
-        if let data = UserDefaults.standard.data(forKey: key),
+        if let data = UserDefaults.standard.data(forKey: storageKey),
            let saved = try? JSONDecoder().decode([Bookmark].self, from: data) {
             bookmarks = saved
+        } else {
+            bookmarks = []
         }
     }
 }

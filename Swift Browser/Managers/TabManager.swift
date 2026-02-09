@@ -31,8 +31,13 @@ public final class TabManager: ObservableObject {
 
     public init() {
         setupActiveTabObservation()
-        addTab() // start with one tab open
         configureIdleDiscardTimer()
+        setupSessionPersistence()
+        
+        // Try to restore session, otherwise add default tab
+        if !restoreSession() {
+            addTab() // start with one tab open
+        }
     }
 
     deinit {
@@ -75,10 +80,10 @@ public final class TabManager: ObservableObject {
             .store(in: &cancellables)
     }
 
-    // Duplicate requests are now handled via direct closures from SidebarView and keyboard shortcuts.
-
-    public func addTab() {
-        let newTab = BrowserTab(title: "Home", url: "", webView: nil)
+    public func addTab(url: String = "", in spaceId: UUID? = nil) {
+        let sid = spaceId ?? SpaceManager.shared.activeSpaceId
+        let title = url.isEmpty ? "Home" : (url.hasPrefix("swiftbrowser://") ? url.replacingOccurrences(of: "swiftbrowser://", with: "").capitalized : "Loading...")
+        let newTab = BrowserTab(title: title, url: url, spaceId: sid, webView: nil)
         
         // Track previous tab before switching
         if let current = currentTab {
@@ -91,6 +96,10 @@ public final class TabManager: ObservableObject {
         }
 
         discardNonWebTabs()
+        
+        if !url.isEmpty && !url.hasPrefix("swiftbrowser://") {
+            restoreTabIfNeeded(newTab)
+        }
     }
 
     public func closeTab(_ tab: BrowserTab) {
@@ -114,11 +123,12 @@ public final class TabManager: ObservableObject {
                     nextTab = tabs[idx - 1]
                 } else if idx + 1 < tabs.count {
                     nextTab = tabs[idx + 1]
-                } else {
-                    nextTab = nil
                 }
-            } else {
-                nextTab = tabs.last(where: { $0.id != closingId })
+            }
+            
+            // Fallback: select any remaining tab
+            if nextTab == nil {
+                nextTab = tabs.first(where: { $0.id != closingId })
             }
         }
 
@@ -155,6 +165,19 @@ public final class TabManager: ObservableObject {
         discardNonWebTabs()
     }
 
+    public func switchSpace(to spaceId: UUID) {
+        SpaceManager.shared.switchSpace(to: spaceId)
+        
+        // Update current tab to the last used tab in this space
+        let spaceTabs = tabs.filter { $0.spaceId == spaceId }
+        if let lastUsed = spaceTabs.max(by: { ($0.lastUsedAt ?? Date.distantPast) < ($1.lastUsedAt ?? Date.distantPast) }) {
+            switchToTab(lastUsed)
+        } else {
+            // If no tabs exist in this space, create a new one
+            addTab(in: spaceId)
+        }
+    }
+
     public func nextTab() {
         guard let current = currentTab, let index = tabs.firstIndex(where: { $0.id == current.id }) else { return }
         let nextIndex = (index + 1) % tabs.count
@@ -174,8 +197,10 @@ public final class TabManager: ObservableObject {
 
     // Duplicate Tab
     public func duplicate(_ tab: BrowserTab) {
-        let webView = WebViewManager()
-        let newTab = BrowserTab(title: tab.title, url: tab.url, webView: webView)
+        let space = SpaceManager.shared.spaces.first(where: { $0.id == tab.spaceId }) ?? SpaceManager.shared.activeSpace
+        let dataStore = SpaceManager.shared.websiteDataStore(for: space)
+        let webView = WebViewManager(dataStore: dataStore)
+        let newTab = BrowserTab(title: tab.title, url: tab.url, spaceId: tab.spaceId, webView: webView)
         
         // Load same content if available
         if !tab.url.isEmpty {
@@ -197,72 +222,41 @@ public final class TabManager: ObservableObject {
         duplicate(current)
     }
 
+    // MARK: - Internal Pages
+    
     public func openSettings() {
-        // Check if settings tab already exists
-        if let settingsTab = tabs.first(where: { $0.url == "swiftbrowser://settings" }) {
-            switchToTab(settingsTab)
-        } else {
-            let settingsTab = BrowserTab(title: "Settings", url: "swiftbrowser://settings", webView: nil)
-            tabs.append(settingsTab)
-            switchToTab(settingsTab)
-        }
-        addressBarText = "Settings"
+        openInternalPage(url: "swiftbrowser://settings")
     }
-
+    
     public func openHistory() {
-        // Check if history tab already exists
-        if let historyTab = tabs.first(where: { $0.url == "swiftbrowser://history" }) {
-            switchToTab(historyTab)
-        } else {
-            let historyTab = BrowserTab(title: "History", url: "swiftbrowser://history", webView: nil)
-            tabs.append(historyTab)
-            switchToTab(historyTab)
-        }
-        addressBarText = "History"
+        openInternalPage(url: "swiftbrowser://history")
+    }
+    
+    public func openBookmarks() {
+        openInternalPage(url: "swiftbrowser://bookmarks")
     }
     
     public func openShortcuts() {
-        // Check if shortcuts tab already exists
-        if let shortcutsTab = tabs.first(where: { $0.url == "swiftbrowser://shortcuts" }) {
-            switchToTab(shortcutsTab)
-        } else {
-            let shortcutsTab = BrowserTab(title: "Shortcuts", url: "swiftbrowser://shortcuts", webView: nil)
-            tabs.append(shortcutsTab)
-            switchToTab(shortcutsTab)
-        }
-        addressBarText = "Shortcuts"
+        openInternalPage(url: "swiftbrowser://shortcuts")
     }
-
-    public func openBookmarks() {
-        // Check if bookmarks tab already exists
-        if let bookmarksTab = tabs.first(where: { $0.url == "swiftbrowser://bookmarks" }) {
-            switchToTab(bookmarksTab)
+    
+    public func openCookies() {
+        openInternalPage(url: "swiftbrowser://cookies")
+    }
+    
+    private func openInternalPage(url: String) {
+        if let existing = tabs.first(where: { $0.url == url && $0.spaceId == SpaceManager.shared.activeSpaceId }) {
+            switchToTab(existing)
         } else {
-            let bookmarksTab = BrowserTab(title: "Bookmarks", url: "swiftbrowser://bookmarks", webView: nil)
-            tabs.append(bookmarksTab)
-            switchToTab(bookmarksTab)
+            addTab(url: url)
         }
-        addressBarText = "Bookmarks"
     }
     
     public func loadCurrent() {
-        #if DEBUG
-        print("DEBUG: TabManager loadCurrent() called with text: '\(addressBarText)'")
-        #endif
-        guard let currentTab = currentTab else { 
-            #if DEBUG
-            print("DEBUG: loadCurrent failed - currentTab is nil")
-            #endif
-            return 
-        }
+        guard let currentTab = currentTab else { return }
         var input = addressBarText.trimmingCharacters(in: .whitespacesAndNewlines)
 
-        if input.isEmpty {
-            #if DEBUG
-            print("DEBUG: loadCurrent detected empty input")
-            #endif
-            return
-        }
+        if input.isEmpty { return }
         
         // Remove focus from all elements by injecting script
         let webViewManager = ensureWebView(for: currentTab)
@@ -279,12 +273,8 @@ public final class TabManager: ObservableObject {
             input = "https://duckduckgo.com/?q=\(query)"
         }
 
-        #if DEBUG
-        print("DEBUG: loadCurrent loading URL: \(input)")
-        #endif
         webViewManager.load(input)
         currentTab.url = input
-
         currentTab.lastUsedAt = Date()
 
         discardNonWebTabs()
@@ -332,7 +322,9 @@ public final class TabManager: ObservableObject {
         }
 
         if tab.webView == nil {
-            let manager = WebViewManager()
+            let space = SpaceManager.shared.spaces.first(where: { $0.id == tab.spaceId }) ?? SpaceManager.shared.activeSpace
+            let dataStore = SpaceManager.shared.websiteDataStore(for: space)
+            let manager = WebViewManager(dataStore: dataStore)
             tab.webView = manager
             manager.load(tab.url)
         }
@@ -344,7 +336,9 @@ public final class TabManager: ObservableObject {
             return manager
         }
 
-        let manager = WebViewManager()
+        let space = SpaceManager.shared.spaces.first(where: { $0.id == tab.spaceId }) ?? SpaceManager.shared.activeSpace
+        let dataStore = SpaceManager.shared.websiteDataStore(for: space)
+        let manager = WebViewManager(dataStore: dataStore)
         tab.webView = manager
         return manager
     }
@@ -372,7 +366,7 @@ public final class TabManager: ObservableObject {
             .publish(every: idleDiscardCheckInterval, on: .main, in: .common)
             .autoconnect()
             .sink { [weak self] _ in
-                guard let self else { return }
+                guard let self = self else { return }
                 self.discardIdleTabsIfNeeded()
             }
     }
@@ -402,7 +396,7 @@ public final class TabManager: ObservableObject {
                 // Don't discard tabs that are currently playing media.
                 let tabID = tab.id
                 webView.requestMediaPlaybackState { [weak self] (state: WKMediaPlaybackState) in
-                    guard let self else { return }
+                    guard let self = self else { return }
                     guard let liveTab = self.tabs.first(where: { $0.id == tabID }) else { return }
                     guard liveTab.id != self.currentTab?.id else { return }
                     guard let liveManager = liveTab.webView else { return }
@@ -421,5 +415,106 @@ public final class TabManager: ObservableObject {
                 discardTabWebView(tab)
             }
         }
+    }
+    
+    // MARK: - Session Persistence
+    
+    private func setupSessionPersistence() {
+        // Observe tabs array changes
+        $tabs
+            .debounce(for: .milliseconds(500), scheduler: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.saveSession()
+            }
+            .store(in: &cancellables)
+        
+        // Observe current tab changes
+        $currentTab
+            .debounce(for: .milliseconds(500), scheduler: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.saveSession()
+            }
+            .store(in: &cancellables)
+        
+        // Observe SpaceManager active space changes
+        SpaceManager.shared.$activeSpaceId
+            .debounce(for: .milliseconds(500), scheduler: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.saveSession()
+            }
+            .store(in: &cancellables)
+        
+        // Save immediately on app termination
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(saveSessionOnTermination),
+            name: NSApplication.willTerminateNotification,
+            object: nil
+        )
+    }
+    
+    @objc private func saveSessionOnTermination() {
+        SessionPersistence.shared.saveSessionImmediately(
+            tabs: tabs,
+            currentTab: currentTab,
+            activeSpaceId: SpaceManager.shared.activeSpaceId
+        )
+    }
+    
+    private func saveSession() {
+        SessionPersistence.shared.saveSession(
+            tabs: tabs,
+            currentTab: currentTab,
+            activeSpaceId: SpaceManager.shared.activeSpaceId
+        )
+    }
+    
+    @discardableResult
+    private func restoreSession() -> Bool {
+        guard let session = SessionPersistence.shared.loadSession() else {
+            return false
+        }
+        
+        // Get available space IDs (filter out any spaces that no longer exist)
+        let availableSpaceIds = Set(SpaceManager.shared.spaces.map { $0.id })
+        let validTabs = session.tabs.filter { availableSpaceIds.contains($0.spaceId) }
+        
+        guard !validTabs.isEmpty else {
+            return false
+        }
+        
+        // Restore tabs (without webviews - they'll be lazy loaded)
+        var restoredTabs: [BrowserTab] = []
+        for persistedTab in validTabs {
+            let tab = BrowserTab(
+                id: persistedTab.id,
+                title: persistedTab.title,
+                url: persistedTab.url,
+                spaceId: persistedTab.spaceId,
+                webView: nil,
+                lastUsedAt: persistedTab.lastUsedAt
+            )
+            restoredTabs.append(tab)
+        }
+        
+        self.tabs = restoredTabs
+        
+        // Restore active space if valid
+        if let activeSpaceId = session.activeSpaceId,
+           availableSpaceIds.contains(activeSpaceId) {
+            SpaceManager.shared.switchSpace(to: activeSpaceId)
+        }
+        
+        // Restore current tab by index
+        let targetIndex = min(max(0, session.currentTabIndex), restoredTabs.count - 1)
+        self.currentTab = restoredTabs[targetIndex]
+
+        if let currentTab = self.currentTab {
+            self.addressBarText = currentTab.url
+            restoreTabIfNeeded(currentTab)
+        }
+
+        print("TabManager: Restored session with \(restoredTabs.count) tabs")
+        return true
     }
 }

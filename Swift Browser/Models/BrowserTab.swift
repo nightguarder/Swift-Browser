@@ -13,7 +13,8 @@ import WebKit
 
 /// Represents a single browser tab, holding its state and its own WebViewManager
 public final class BrowserTab: Identifiable, ObservableObject {
-    public let id = UUID()
+    public let id: UUID
+    public let spaceId: UUID
     
     @Published public var title: String
     @Published public var url: String
@@ -28,11 +29,13 @@ public final class BrowserTab: Identifiable, ObservableObject {
     
     private var cancellables = Set<AnyCancellable>()
 
-    public init(title: String, url: String, webView: WebViewManager? = nil) {
+    public init(id: UUID? = nil, title: String, url: String, spaceId: UUID, webView: WebViewManager? = nil, lastUsedAt: Date? = nil) {
+        self.id = id ?? UUID()
         self.title = title
         self.url = url
+        self.spaceId = spaceId
         self.webView = webView
-        self.lastUsedAt = Date()
+        self.lastUsedAt = lastUsedAt ?? Date()
         
         setupBindings()
     }

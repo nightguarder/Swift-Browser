@@ -24,9 +24,12 @@ public final class WebViewManager: NSObject, ObservableObject, WKNavigationDeleg
     private var cancellables = Set<AnyCancellable>()
 
     private var isTornDown = false
+    private let dataStore: WKWebsiteDataStore
 
-    public override init() {
+    public init(dataStore: WKWebsiteDataStore = .default()) {
+        self.dataStore = dataStore
         let config = WKWebViewConfiguration()
+        config.websiteDataStore = dataStore
         
         // Disable media autoplay and require user interaction
         config.mediaTypesRequiringUserActionForPlayback = .all
@@ -267,11 +270,10 @@ public final class WebViewManager: NSObject, ObservableObject, WKNavigationDeleg
     
     public func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         // Record history
-        if let url = webView.url {
-            // We use a slight delay or just dispatch to main to ensure title is ready?
-            // WKWebView.title might be updated slightly after didFinish.
-            // But let's try grabbing it now.
-            HistoryManager.shared.addVisit(url: url, title: webView.title)
+        if let url = webView.url, !dataStore.isPersistent == false {
+            // Only record history if not in an ephemeral/private data store
+            let pageTitle = webView.title?.isEmpty == false ? webView.title! : extractTitleFromURL(url)
+            HistoryManager.shared.addVisit(url: url, title: pageTitle)
         }
         
         // Re-apply dark mode if needed (sometimes reliable on finish)
@@ -284,6 +286,32 @@ public final class WebViewManager: NSObject, ObservableObject, WKNavigationDeleg
         if isEnabled {
             ContentBlockerManager.shared.applyBlocklist(to: webView.configuration) { }
         }
+    }
+
+    // Extract a readable title from URL when page title is not available
+    private func extractTitleFromURL(_ url: URL) -> String {
+        // Try to use the last path component if it's not empty
+        let lastComponent = url.lastPathComponent
+        if !lastComponent.isEmpty && lastComponent != "/" {
+            // Remove file extension if present
+            let withoutExtension = (lastComponent as NSString).deletingPathExtension
+            if !withoutExtension.isEmpty {
+                // Convert kebab-case or snake_case to spaces and capitalize
+                return withoutExtension
+                    .replacingOccurrences(of: "-", with: " ")
+                    .replacingOccurrences(of: "_", with: " ")
+                    .capitalized
+            }
+        }
+
+        // Fallback to host name
+        if let host = url.host {
+            // Remove www. prefix if present
+            return host.replacingOccurrences(of: "^www\\.", with: "", options: .regularExpression)
+        }
+
+        // Final fallback
+        return url.absoluteString
     }
     
     public func updateContentBlocker(enabled: Bool) {
