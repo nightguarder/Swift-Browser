@@ -38,6 +38,31 @@ public final class WebViewManager: NSObject, ObservableObject, WKNavigationDeleg
     private let isPrivateSpace: Bool
 
     private let defaultUserAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15"
+    
+    // Pre-compiled static scripts for performance
+    private static let dntScriptSource = "Object.defineProperty(navigator,'doNotTrack',{get:()=>'1'});"
+    private static let noFlashCSS = """
+        (function(){
+            var s=document.createElement('style');
+            s.textContent='html,body{background:#1e1e1e !important}';
+            document.documentElement.appendChild(s);
+        })()
+        """
+    #if DEBUG
+    private static let consoleBridgeScript = """
+        (function(){
+            var oldLog=console.log,oldWarn=console.warn,oldError=console.error,oldDebug=console.debug;
+            function sendToNative(type,args){
+                var msg=Array.from(args).map(v=>typeof v==='object'?JSON.stringify(v):String(v)).join(' ');
+                window.webkit.messageHandlers.logger.postMessage({type:type,message:msg});
+            }
+            console.log=function(){sendToNative('LOG',arguments);oldLog.apply(console,arguments)};
+            console.warn=function(){sendToNative('WARN',arguments);oldWarn.apply(console,arguments)};
+            console.error=function(){sendToNative('ERROR',arguments);oldError.apply(console,arguments)};
+            console.debug=function(){sendToNative('DEBUG',arguments);oldDebug.apply(console,arguments)};
+        })();
+        """
+    #endif
 
     public init(dataStore: WKWebsiteDataStore = .default(), isPrivateSpace: Bool = false, configuration: WKWebViewConfiguration? = nil) {
         self.dataStore = dataStore
@@ -54,44 +79,35 @@ public final class WebViewManager: NSObject, ObservableObject, WKNavigationDeleg
             config.upgradeKnownHostsToHTTPS = true
         }
         
-        // Apply Do Not Track (DNT)
+        // Apply Do Not Track (DNT) - minimal script
         let dntEnabled = UserDefaults.standard.bool(forKey: "doNotTrackEnabled")
         if dntEnabled {
             let dntScript = WKUserScript(
-                source: "Object.defineProperty(navigator, 'doNotTrack', {get: () => '1'});",
+                source: Self.dntScriptSource,
                 injectionTime: .atDocumentStart,
                 forMainFrameOnly: false
             )
             config.userContentController.addUserScript(dntScript)
         }
         
-        // Setup Console Bridge Script
-        let scriptSource = """
-            (function() {
-                var oldLog = console.log;
-                var oldWarn = console.warn;
-                var oldError = console.error;
-                var oldDebug = console.debug;
-
-                function sendToNative(type, args) {
-                    var message = Array.from(args).map(v => {
-                        try {
-                            return typeof v === 'object' ? JSON.stringify(v) : String(v);
-                        } catch(e) {
-                            return String(v);
-                        }
-                    }).join(' ');
-                    window.webkit.messageHandlers.logger.postMessage({type: type, message: message});
-                }
-
-                console.log = function() { sendToNative('LOG', arguments); oldLog.apply(console, arguments); };
-                console.warn = function() { sendToNative('WARN', arguments); oldWarn.apply(console, arguments); };
-                console.error = function() { sendToNative('ERROR', arguments); oldError.apply(console, arguments); };
-                console.debug = function() { sendToNative('DEBUG', arguments); oldDebug.apply(console, arguments); };
-            })();
-        """
-        let script = WKUserScript(source: scriptSource, injectionTime: .atDocumentStart, forMainFrameOnly: false)
-        config.userContentController.addUserScript(script)
+        #if DEBUG
+        // Console Bridge Script - DEBUG builds only to avoid production overhead
+        let consoleScript = WKUserScript(
+            source: Self.consoleBridgeScript,
+            injectionTime: .atDocumentStart,
+            forMainFrameOnly: false
+        )
+        config.userContentController.addUserScript(consoleScript)
+        #endif
+        
+        // Prevent white flash: Inject CSS at document start to set dark background immediately
+        // This runs before any rendering occurs, preventing the white background from showing
+        let flashPreventionScript = WKUserScript(
+            source: Self.noFlashCSS,
+            injectionTime: .atDocumentStart,
+            forMainFrameOnly: true
+        )
+        config.userContentController.addUserScript(flashPreventionScript)
 
         
         webView = WKWebView(frame: .zero, configuration: config)
@@ -112,6 +128,10 @@ public final class WebViewManager: NSObject, ObservableObject, WKNavigationDeleg
         
         // Disable aggressive QuickLook preview behavior which can cause leaks
         webView.allowsMagnification = false
+        
+        // Prevent white flash before page load by using transparent background
+        // The web view's background shows before page content renders
+        webView.setValue(false, forKey: "drawsBackground")
         
         // Use WeakScriptMessageHandler to avoid retain cycle
         // Remove existing handler first to avoid crash if the configuration was inherited/reused

@@ -180,12 +180,23 @@ public final class TabManager: ObservableObject {
     }
 
     public func switchToTab(_ tab: BrowserTab) {
-        if let current = currentTab, current.id != tab.id {
-            previousTabId = current.id
-        }
-        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
-            currentTab = tab
-            addressBarText = tab.url
+        // FIX: Switch to the tab's space first if it's in a different space
+        if tab.spaceId != SpaceManager.shared.activeSpaceId {
+            switchSpace(to: tab.spaceId)
+            // After switching space, switchToTab will be called again with the last used tab
+            // We need to specifically select this tab instead
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                currentTab = tab
+                addressBarText = tab.url
+            }
+        } else {
+            if let current = currentTab, current.id != tab.id {
+                previousTabId = current.id
+            }
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                currentTab = tab
+                addressBarText = tab.url
+            }
         }
 
         tab.lastUsedAt = Date()

@@ -19,7 +19,6 @@ public final class ContentBlockerManager {
     /// Rules are organized by category for maintainability
     private static let blocklistJSON = """
     [
-        // === GOOGLE ECOSYSTEM ===
         {
             "trigger": {
                 "url-filter": "^https?://([^/]+\\.)?google-analytics\\.com/.*",
@@ -89,8 +88,6 @@ public final class ContentBlockerManager {
             },
             "action": { "type": "block" }
         },
-        
-        // === FACEBOOK/META ===
         {
             "trigger": {
                 "url-filter": "^https?://connect\\.facebook\\.net/.*",
@@ -123,8 +120,6 @@ public final class ContentBlockerManager {
             },
             "action": { "type": "block" }
         },
-        
-        // === TWITTER/X ===
         {
             "trigger": {
                 "url-filter": "^https?://platform\\.twitter\\.com/.*",
@@ -148,8 +143,6 @@ public final class ContentBlockerManager {
             },
             "action": { "type": "block" }
         },
-        
-        // === AMAZON ADVERTISING ===
         {
             "trigger": {
                 "url-filter": "^https?://([^/]+\\.)?amazon-adsystem\\.com/.*",
@@ -166,8 +159,6 @@ public final class ContentBlockerManager {
             },
             "action": { "type": "block" }
         },
-        
-        // === MICROSOFT/BING ===
         {
             "trigger": {
                 "url-filter": "^https?://([^/]+\\.)?bing\\.com/action/.*",
@@ -192,8 +183,6 @@ public final class ContentBlockerManager {
             },
             "action": { "type": "block" }
         },
-        
-        // === LINKEDIN ===
         {
             "trigger": {
                 "url-filter": "^https?://([^/]+\\.)?linkedin\\.com/px/.*",
@@ -210,8 +199,6 @@ public final class ContentBlockerManager {
             },
             "action": { "type": "block" }
         },
-        
-        // === ANALYTICS PLATFORMS ===
         {
             "trigger": {
                 "url-filter": "^https?://([^/]+\\.)?mixpanel\\.com/.*",
@@ -340,8 +327,6 @@ public final class ContentBlockerManager {
             },
             "action": { "type": "block" }
         },
-        
-        // === AD NETWORKS ===
         {
             "trigger": {
                 "url-filter": "^https?://([^/]+\\.)?criteo\\.com/.*",
@@ -438,8 +423,6 @@ public final class ContentBlockerManager {
             },
             "action": { "type": "block" }
         },
-        
-        // === PINTEREST ===
         {
             "trigger": {
                 "url-filter": "^https?://([^/]+\\.)?pinterest\\.com/.*",
@@ -448,8 +431,6 @@ public final class ContentBlockerManager {
             },
             "action": { "type": "block" }
         },
-        
-        // === SNAPCHAT ===
         {
             "trigger": {
                 "url-filter": "^https?://([^/]+\\.)?snapchat\\.com/.*",
@@ -458,8 +439,6 @@ public final class ContentBlockerManager {
             },
             "action": { "type": "block" }
         },
-        
-        // === TIKTOK ===
         {
             "trigger": {
                 "url-filter": "^https?://([^/]+\\.)?tiktok\\.com/.*",
@@ -468,8 +447,6 @@ public final class ContentBlockerManager {
             },
             "action": { "type": "block" }
         },
-        
-        // === REDDIT ===
         {
             "trigger": {
                 "url-filter": "^https?://([^/]+\\.)?redditstatic\\.com/.*",
@@ -486,8 +463,6 @@ public final class ContentBlockerManager {
             },
             "action": { "type": "block" }
         },
-        
-        // === YOUTUBE (tracking beacons) ===
         {
             "trigger": {
                 "url-filter": "^https?://([^/]+\\.)?youtube\\.com/ptracking",
@@ -509,8 +484,6 @@ public final class ContentBlockerManager {
             },
             "action": { "type": "block" }
         },
-        
-        // === DISQUS ===
         {
             "trigger": {
                 "url-filter": "^https?://([^/]+\\.)?disqus\\.com/.*",
@@ -527,8 +500,6 @@ public final class ContentBlockerManager {
             },
             "action": { "type": "block" }
         },
-        
-        // === CHAT WIDGETS (tracking-heavy) ===
         {
             "trigger": {
                 "url-filter": "^https?://([^/]+\\.)?intercom\\.io/.*",
@@ -593,8 +564,6 @@ public final class ContentBlockerManager {
             },
             "action": { "type": "block" }
         },
-        
-        // === FINGERPRINTING & TRACKING ===
         {
             "trigger": {
                 "url-filter": "^https?://([^/]+\\.)?fingerprintjs\\.com/.*",
@@ -611,8 +580,6 @@ public final class ContentBlockerManager {
             },
             "action": { "type": "block" }
         },
-        
-        // === THIRD-PARTY COOKIE/TRACKING PIXELS ===
         {
             "trigger": {
                 "url-filter": "^https?://([^/]+\\.)?quantserve\\.com/.*",
@@ -653,8 +620,6 @@ public final class ContentBlockerManager {
             },
             "action": { "type": "block" }
         },
-        
-        // === POPULAR EMBEDS ===
         {
             "trigger": {
                 "url-filter": "^https?://([^/]+\\.)?addthis\\.com/.*",
@@ -679,8 +644,6 @@ public final class ContentBlockerManager {
             },
             "action": { "type": "block" }
         },
-        
-        // === MAIL TRACKING ===
         {
             "trigger": {
                 "url-filter": "^https?://([^/]+\\.)?mailchimp\\.com/mc/.*",
@@ -689,8 +652,6 @@ public final class ContentBlockerManager {
             },
             "action": { "type": "block" }
         },
-        
-        // === EXCEPTIONS - Allow essential resources ===
         {
             "trigger": {
                 "url-filter": "^https?://([^/]+\\.)?googleapis\\.com/.*",

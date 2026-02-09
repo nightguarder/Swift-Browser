@@ -253,25 +253,33 @@ struct BrowserView: View {
         let query = tabManager.addressBarText.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
         guard !query.isEmpty else { return }
         
-        // Build suggestions list to get accurate count
+        // Build suggestions list to get accurate count - must match AddressBarSuggestionsView logic
         var suggestions: [(title: String, url: String)] = []
         
-        // Add bookmarks
-        suggestions.append(contentsOf: bookmarkManager.bookmarks
-            .filter { $0.title.lowercased().contains(query) || $0.url.lowercased().contains(query) }
-            .prefix(5)
-            .map { (title: $0.title, url: $0.url) })
+        // Check if we're in a private space
+        let currentSpaceId = SpaceManager.shared.activeSpaceId
+        let isPrivateSpace = SpaceManager.shared.spaces.first { $0.id == currentSpaceId }?.isPrivate ?? false
         
-        // Add history
-        suggestions.append(contentsOf: historyManager.history
-            .filter { ($0.title?.lowercased().contains(query) ?? false) || $0.url.absoluteString.lowercased().contains(query) }
-            .prefix(5)
-            .map { (title: $0.title ?? "Untitled", url: $0.url.absoluteString) })
+        // Only show history and bookmarks in non-private spaces
+        if !isPrivateSpace {
+            // Add bookmarks
+            suggestions.append(contentsOf: bookmarkManager.bookmarks
+                .filter { $0.title.lowercased().contains(query) || $0.url.lowercased().contains(query) }
+                .prefix(5)
+                .map { (title: $0.title, url: $0.url) })
+            
+            // Add history
+            suggestions.append(contentsOf: historyManager.history
+                .filter { ($0.title?.lowercased().contains(query) ?? false) || $0.url.absoluteString.lowercased().contains(query) }
+                .prefix(5)
+                .map { (title: $0.title ?? "Untitled", url: $0.url.absoluteString) })
+        }
         
         // Add search option
         suggestions.append((title: "Search with DuckDuckGo", url: query))
         
         let suggestionCount = min(suggestions.count, 8)
+        guard suggestionCount > 0 else { return }
         
         switch direction {
         case .down:
@@ -290,20 +298,27 @@ struct BrowserView: View {
             return
         }
         
-        // Build suggestions list to find the selected one
+        // Build suggestions list to find the selected one - must match navigation logic
         var suggestions: [(title: String, url: String)] = []
         
-        // Add bookmarks
-        suggestions.append(contentsOf: bookmarkManager.bookmarks
-            .filter { $0.title.lowercased().contains(query) || $0.url.lowercased().contains(query) }
-            .prefix(5)
-            .map { (title: $0.title, url: $0.url) })
+        // Check if we're in a private space
+        let currentSpaceId = SpaceManager.shared.activeSpaceId
+        let isPrivateSpace = SpaceManager.shared.spaces.first { $0.id == currentSpaceId }?.isPrivate ?? false
         
-        // Add history
-        suggestions.append(contentsOf: historyManager.history
-            .filter { ($0.title?.lowercased().contains(query) ?? false) || $0.url.absoluteString.lowercased().contains(query) }
-            .prefix(5)
-            .map { (title: $0.title ?? "Untitled", url: $0.url.absoluteString) })
+        // Only show history and bookmarks in non-private spaces
+        if !isPrivateSpace {
+            // Add bookmarks
+            suggestions.append(contentsOf: bookmarkManager.bookmarks
+                .filter { $0.title.lowercased().contains(query) || $0.url.lowercased().contains(query) }
+                .prefix(5)
+                .map { (title: $0.title, url: $0.url) })
+            
+            // Add history
+            suggestions.append(contentsOf: historyManager.history
+                .filter { ($0.title?.lowercased().contains(query) ?? false) || $0.url.absoluteString.lowercased().contains(query) }
+                .prefix(5)
+                .map { (title: $0.title ?? "Untitled", url: $0.url.absoluteString) })
+        }
         
         // Add search option
         suggestions.append((title: "Search with DuckDuckGo", url: query))
@@ -315,7 +330,7 @@ struct BrowserView: View {
             tabManager.addressBarText = suggestions[selectedSuggestionIndex].url
             tabManager.loadCurrent()
         } else {
-            // No selection, load current text
+            // No selection, load current text as search
             tabManager.loadCurrent()
         }
         

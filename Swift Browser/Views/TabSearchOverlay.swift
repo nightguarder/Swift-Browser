@@ -7,38 +7,7 @@
 
 import SwiftUI
 import AppKit
-
-// MARK: - Key Event Handling
-private struct KeyEventView: NSViewRepresentable {
-    let onKeyDown: (NSEvent) -> Bool
-    
-    func makeNSView(context: Context) -> NSView {
-        let view = KeyEventNSView()
-        view.onKeyDown = onKeyDown
-        return view
-    }
-    
-    func updateNSView(_ nsView: NSView, context: Context) {}
-}
-
-private class KeyEventNSView: NSView {
-    var onKeyDown: ((NSEvent) -> Bool)?
-    
-    override var acceptsFirstResponder: Bool { true }
-    
-    override func keyDown(with event: NSEvent) {
-        if let onKeyDown = onKeyDown, onKeyDown(event) {
-            return
-        }
-        super.keyDown(with: event)
-    }
-}
-
-extension View {
-    func onKeyDown(perform action: @escaping (NSEvent) -> Bool) -> some View {
-        self.background(KeyEventView(onKeyDown: action))
-    }
-}
+import Combine
 
 public struct TabSearchOverlay: View {
     @ObservedObject var tabManager: TabManager
@@ -46,6 +15,8 @@ public struct TabSearchOverlay: View {
     @Binding var tabSearchText: String
     @Binding var selectedSearchIndex: Int
     @FocusState.Binding var isTabSearchFocused: Bool
+    
+    @State private var keyboardMonitor: Any?
     
     public init(tabManager: TabManager, isTabSearchVisible: Binding<Bool>, tabSearchText: Binding<String>, selectedSearchIndex: Binding<Int>, isTabSearchFocused: FocusState<Bool>.Binding) {
         self.tabManager = tabManager
@@ -67,32 +38,71 @@ public struct TabSearchOverlay: View {
                             tabSearchText = ""
                         }
                     }
-                    .onKeyDown { event in
-                        if event.keyCode == 53 {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                                isTabSearchVisible = false
-                                tabSearchText = ""
-                            }
-                            return true
-                        }
-                        return false
-                    }
                 
                 // Tab Search Panel
                 tabSearchPanel
-                    .onKeyDown { event in
-                        if event.keyCode == 53 {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                                isTabSearchVisible = false
-                                tabSearchText = ""
-                            }
-                            return true
-                        }
-                        return false
-                    }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .zIndex(100)
+            .onAppear {
+                selectedSearchIndex = 0
+                setupKeyboardMonitor()
+            }
+            .onDisappear {
+                removeKeyboardMonitor()
+            }
+        }
+    }
+    
+    private func setupKeyboardMonitor() {
+        keyboardMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak tabManager] event in
+            guard isTabSearchVisible else { return event }
+            
+            // Handle Escape key (keyCode 53)
+            if event.keyCode == 53 {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                    isTabSearchVisible = false
+                    tabSearchText = ""
+                }
+                return nil // Consume the event
+            }
+            
+            let count = filteredTabs.count
+            guard count > 0 else { return event }
+            
+            // Handle Down Arrow (keyCode 125)
+            if event.keyCode == 125 {
+                selectedSearchIndex = (selectedSearchIndex + 1) % count
+                return nil // Consume the event
+            }
+            
+            // Handle Up Arrow (keyCode 126)
+            if event.keyCode == 126 {
+                selectedSearchIndex = (selectedSearchIndex - 1 + count) % count
+                return nil // Consume the event
+            }
+            
+            // Handle Return/Enter (keyCode 36)
+            if event.keyCode == 36 {
+                let filtered = filteredTabs
+                if selectedSearchIndex < filtered.count {
+                    tabManager?.switchToTab(filtered[selectedSearchIndex])
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                        isTabSearchVisible = false
+                        tabSearchText = ""
+                    }
+                }
+                return nil // Consume the event
+            }
+            
+            return event
+        }
+    }
+    
+    private func removeKeyboardMonitor() {
+        if let monitor = keyboardMonitor {
+            NSEvent.removeMonitor(monitor)
+            keyboardMonitor = nil
         }
     }
     
@@ -106,42 +116,26 @@ public struct TabSearchOverlay: View {
             // Tab List
             tabSearchResultsList
         }
-        .frame(width: 400)
+        .frame(width: 600)
         .background(.ultraThinMaterial)
         .cornerRadius(12)
-        .shadow(color: .black.opacity(0.3), radius: 20, x: 0, y: 10)
+        .shadow(color: .black.opacity(0.2), radius: 10, y: 5)
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Color.primary.opacity(0.1), lineWidth: 0.5)
+        )
     }
     
     private var tabSearchBar: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 12) {
             Image(systemName: "magnifyingglass")
                 .foregroundColor(.secondary)
-                .font(.system(size: 14))
+                .font(.system(size: 16, weight: .medium))
             
             TextField("Search tabs...", text: $tabSearchText)
                 .textFieldStyle(.plain)
+                .font(.system(size: 15))
                 .focused($isTabSearchFocused)
-                .onKeyDown { event in
-                    if event.keyCode == 53 { // Esc
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                            isTabSearchVisible = false
-                            tabSearchText = ""
-                        }
-                        return true
-                    }
-                    
-                    let count = filteredTabs.count
-                    if count == 0 { return false }
-                    
-                    if event.keyCode == 125 { // Down Arrow
-                        selectedSearchIndex = (selectedSearchIndex + 1) % count
-                        return true
-                    } else if event.keyCode == 126 { // Up Arrow
-                        selectedSearchIndex = (selectedSearchIndex - 1 + count) % count
-                        return true
-                    }
-                    return false
-                }
                 .onSubmit {
                     let filtered = filteredTabs
                     if selectedSearchIndex < filtered.count {
@@ -157,7 +151,7 @@ public struct TabSearchOverlay: View {
                 Button(action: { tabSearchText = "" }) {
                     Image(systemName: "xmark.circle.fill")
                         .foregroundColor(.secondary)
-                        .font(.system(size: 14))
+                        .font(.system(size: 16))
                 }
                 .buttonStyle(.plain)
             }
@@ -170,27 +164,32 @@ public struct TabSearchOverlay: View {
                 .background(Color.secondary.opacity(0.15))
                 .cornerRadius(4)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
         .background(.ultraThinMaterial)
     }
     
     private var tabSearchResultsList: some View {
         ScrollViewReader { proxy in
-            ScrollView(.vertical, showsIndicators: true) {
-                VStack(spacing: 0) {
+            ScrollView(.vertical, showsIndicators: false) {
+                LazyVStack(spacing: 0) {
                     let filtered = filteredTabs
                     ForEach(0..<filtered.count, id: \.self) { index in
-                        tabSearchResultRow(for: filtered[index], index: index)
-                        
-                        if index != filtered.count - 1 {
-                            Divider()
-                                .padding(.leading, 30)
+                        TabSearchRow(
+                            tab: filtered[index],
+                            isSelected: index == selectedSearchIndex,
+                            isCurrentTab: tabManager.currentTab?.id == filtered[index].id
+                        ) {
+                            tabManager.switchToTab(filtered[index])
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                isTabSearchVisible = false
+                                tabSearchText = ""
+                            }
                         }
                     }
                 }
             }
-            .frame(maxHeight: 300)
+            .frame(maxHeight: 320)
             .onChange(of: selectedSearchIndex) { _, newIndex in
                 let filtered = filteredTabs
                 if newIndex < filtered.count {
@@ -202,44 +201,6 @@ public struct TabSearchOverlay: View {
         }
     }
     
-    private func tabSearchResultRow(for tab: BrowserTab, index: Int) -> some View {
-        let isSelected = index == selectedSearchIndex
-        return Button(action: {
-            tabManager.switchToTab(tab)
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                isTabSearchVisible = false
-                tabSearchText = ""
-            }
-        }) {
-            HStack(spacing: 12) {
-                Circle()
-                    .fill(tabManager.currentTab?.id == tab.id ? Color.accentColor : (isSelected ? Color.primary.opacity(0.5) : Color.secondary.opacity(0.3)))
-                    .frame(width: 6, height: 6)
-                
-                Text(tab.title.isEmpty ? "New Tab" : tab.title)
-                    .lineLimit(1)
-                    .font(.system(size: 13))
-                    .foregroundColor(isSelected ? .primary : .secondary)
-                
-                Spacer()
-                
-                if !tab.url.isEmpty {
-                    Text(tab.url)
-                        .lineLimit(1)
-                        .font(.system(size: 11))
-                        .foregroundColor(.secondary.opacity(isSelected ? 0.9 : 0.7))
-                        .truncationMode(.middle)
-                }
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
-            .background(isSelected ? Color.primary.opacity(0.1) : Color.clear)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .id(tab.id)
-    }
-    
     private var filteredTabs: [BrowserTab] {
         if tabSearchText.isEmpty {
             return tabManager.tabs
@@ -248,5 +209,67 @@ public struct TabSearchOverlay: View {
         return tabManager.tabs.filter { tab in
             tab.title.lowercased().contains(query) || tab.url.lowercased().contains(query)
         }
+    }
+}
+
+struct TabSearchRow: View {
+    let tab: BrowserTab
+    let isSelected: Bool
+    let isCurrentTab: Bool
+    let action: () -> Void
+    @State private var isHovered = false
+    
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                // Favicon or indicator
+                ZStack {
+                    if isCurrentTab {
+                        Circle()
+                            .fill(Color.accentColor)
+                            .frame(width: 8, height: 8)
+                    } else {
+                        FaviconView(urlString: tab.url, title: tab.title, size: 20)
+                    }
+                }
+                .frame(width: 20, height: 20)
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(tab.title.isEmpty ? "New Tab" : tab.title)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(.primary)
+                        .lineLimit(1)
+                    
+                    if !tab.url.isEmpty {
+                        Text(tab.url)
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                }
+                
+                Spacer()
+                
+                // Current tab indicator
+                if isCurrentTab {
+                    Text("Current")
+                        .font(.system(size: 9, weight: .bold))
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.accentColor.opacity(0.15))
+                        .cornerRadius(4)
+                        .foregroundStyle(Color.accentColor)
+                }
+            }
+            .padding(.vertical, 10)
+            .padding(.horizontal, 16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(isSelected || isHovered ? Color.primary.opacity(0.08) : .clear)
+        }
+        .buttonStyle(.plain)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(Rectangle())
+        .onHover { isHovered = $0 }
+        .id(tab.id)
     }
 }
