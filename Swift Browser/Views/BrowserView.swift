@@ -43,6 +43,9 @@ struct BrowserView: View {
             .background(shortcuts)
             .overlay(addressBarSuggestionsOverlay)
             .overlay(controlCenterMenuOverlay)
+            .onAppear {
+                NSApp.keyWindow?.makeFirstResponder(nil)
+            }
             .overlay(
                 Group {
                     if findInPageManager.isVisible {
@@ -133,19 +136,21 @@ struct BrowserView: View {
             } else if let currentTab = tabManager.currentTab, currentTab.url == "swiftbrowser://bookmarks" {
                 BookmarksView(tabManager: tabManager)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if let currentTab = tabManager.currentTab, currentTab.url == "swiftbrowser://cookies" {
+                let space = SpaceManager.shared.spaces.first { $0.id == currentTab.spaceId } ?? SpaceManager.shared.activeSpace
+                CookiesView(dataStore: SpaceManager.shared.websiteDataStore(for: space))
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if let currentTab = tabManager.currentTab, currentTab.url == "swiftbrowser://shortcuts" {
                 ShortcutsView(tabManager: tabManager)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if let currentTab = tabManager.currentTab, currentTab.url.isEmpty {
+                let space = SpaceManager.shared.spaces.first { $0.id == currentTab.spaceId } ?? SpaceManager.shared.activeSpace
                 HomePage(onSearch: { query in
                     tabManager.addressBarText = query
                     tabManager.loadCurrent()
-                }, bookmarks: bookmarkManager.bookmarks)
+                }, bookmarks: bookmarkManager.bookmarks, isPrivate: space.isPrivate)
             } else {
                 contentArea
-                    .onTapGesture {
-                        isAddressBarFocused = false
-                    }
             }
         }
         .padding(.leading, 50) // Fixed padding for collapsed sidebar
@@ -155,48 +160,52 @@ struct BrowserView: View {
     @ViewBuilder
     private var addressBarSuggestionsOverlay: some View {
         if isAddressBarFocused {
-            // Background overlay to catch clicks outside suggestions
-            Color.clear
-                .contentShape(Rectangle())
-                .onTapGesture {
-                    isAddressBarFocused = false
-                    NSApp.keyWindow?.makeFirstResponder(nil)
-                }
-                .overlay(
-                    VStack(spacing: 0) {
-                        // Position exactly at the bottom edge of the toolbar
-                        Color.clear
-                            .frame(height: AppSpacing.toolbarHeight - 8)
+            // Full screen overlay to catch clicks outside suggestions
+            ZStack {
+                // Transparent background that catches taps
+                Color.clear
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        isAddressBarFocused = false
+                        NSApp.keyWindow?.makeFirstResponder(nil)
+                    }
+                
+                // Suggestions positioned below the address bar
+                VStack(spacing: 0) {
+                    // Position exactly at the bottom edge of the toolbar
+                    Color.clear
+                        .frame(height: AppSpacing.toolbarHeight - 8)
+                    
+                    // Center the suggestions under the address bar
+                    HStack {
+                        Spacer()
                         
-                        // Center the suggestions under the address bar
-                        HStack {
-                            Spacer()
-                            
-                            AddressBarSuggestionsView(
-                                tabManager: tabManager,
-                                bookmarkManager: bookmarkManager,
-                                historyManager: historyManager,
-                                isFocused: Binding(
-                                    get: { isAddressBarFocused },
-                                    set: { isAddressBarFocused = $0 }
-                                ),
-                                selectedIndex: $selectedSuggestionIndex
-                            )
-                            .frame(minWidth: 400, idealWidth: 600, maxWidth: .infinity)
-                            
-                            Spacer()
-                        }
-                        .padding(ToolbarLayout.addressBarHorizontalPadding)
+                        AddressBarSuggestionsView(
+                            tabManager: tabManager,
+                            bookmarkManager: bookmarkManager,
+                            historyManager: historyManager,
+                            isFocused: Binding(
+                                get: { isAddressBarFocused },
+                                set: { isAddressBarFocused = $0 }
+                            ),
+                            selectedIndex: $selectedSuggestionIndex
+                        )
+                        .frame(minWidth: 400, idealWidth: 600, maxWidth: .infinity)
                         
                         Spacer()
                     }
-                )
-                .onAppear {
-                    setupKeyboardMonitor()
+                    .padding(.leading, AppSpacing.navControlsWidth + AppSpacing.horizontalPadding + 8) // Shift right a bit
+                    .padding(.trailing, AppSpacing.menuButtonWidth + AppSpacing.horizontalPadding)
+                    
+                    Spacer()
                 }
-                .onDisappear {
-                    removeKeyboardMonitor()
-                }
+            }
+            .onAppear {
+                setupKeyboardMonitor()
+            }
+            .onDisappear {
+                removeKeyboardMonitor()
+            }
         }
     }
     
@@ -348,32 +357,22 @@ struct BrowserView: View {
 
     // MARK: - Content Area
     private var contentArea: some View {
-        ZStack {
-            ForEach(tabManager.tabs, id: \.id) { tab in
-                Group {
-                    if let webView = tab.webView?.webView {
-                        WebViewContainer(webView: webView)
-                    } else if tab.id == tabManager.currentTab?.id {
-                        // If the selected tab was discarded, TabManager restores it on selection.
-                        // Show a lightweight fallback while it restores.
-                        ProgressView()
-                            .progressViewStyle(.circular)
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    } else {
-                        // Keep a placeholder to avoid tearing down view hierarchy for non-selected tabs
-                        Color.clear
-                    }
-                }
-                .id(tab.id)
-                .opacity(tab.id == tabManager.currentTab?.id ? 1 : 0)
-                .allowsHitTesting(tab.id == tabManager.currentTab?.id)
+        Group {
+            if let currentTab = tabManager.currentTab, let webView = currentTab.webView?.webView {
+                WebViewContainer(webView: webView)
+                    .id(currentTab.id)
+            } else {
+                ProgressView()
+                    .progressViewStyle(.circular)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
     }
     
     // MARK: - Shortcuts
+    @ViewBuilder
     private var shortcuts: some View {
-        Group {
+        ZStack {
             Button("") { tabManager.addTab() }.keyboardShortcut("t", modifiers: .command)
             Button("") { if let tab = tabManager.currentTab { tabManager.closeTab(tab) } }.keyboardShortcut("w", modifiers: .command)
             Button("") { isAddressBarFocused = true }.keyboardShortcut("l", modifiers: .command)
@@ -401,7 +400,7 @@ struct BrowserView: View {
                     NSPasteboard.general.clearContents()
                     NSPasteboard.general.setString(url, forType: .string)
                 }
-            }.keyboardShortcut("c", modifiers: [.command, .shift])
+            }.keyboardShortcut("c", modifiers: [.command, .option])
             Button("") {
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                     isTabSearchVisible.toggle()
@@ -421,7 +420,23 @@ struct BrowserView: View {
                      }
                  }
              }.keyboardShortcut("f", modifiers: .command)
+            
+            // Developer Tools
+            Button("") { 
+                #if os(macOS)
+                tabManager.currentTab?.webView?.webView.perform(Selector(("_showDeveloperTools:")))
+                #endif
+            }
+            .keyboardShortcut(.init(Character(UnicodeScalar(0xF70F)!)), modifiers: [])
+            
+            Button("") { 
+                #if os(macOS)
+                tabManager.currentTab?.webView?.webView.perform(Selector(("_showDeveloperTools:")))
+                #endif
+            }
+            .keyboardShortcut("i", modifiers: [.command, .option])
         }
         .opacity(0)
+        .allowsHitTesting(false)
     }
 }

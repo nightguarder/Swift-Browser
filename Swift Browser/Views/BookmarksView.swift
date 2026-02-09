@@ -98,7 +98,7 @@ struct BookmarksView: View {
                         .onExitCommand {
                             isSearchFocused = false
                         }
-                        .onChange(of: isSearchFocused) { _, newValue in
+                        .onChange(of: isSearchFocused) { newValue in
                             if !newValue {
                                 NSApp.keyWindow?.makeFirstResponder(nil)
                             }
@@ -175,7 +175,7 @@ struct BookmarksView: View {
                             isSearchFocused = false
                         }
                     }
-                    .onChange(of: selectedBookmarkID) { _, newValue in
+                    .onChange(of: selectedBookmarkID) { newValue in
                         if let id = newValue {
                             withAnimation {
                                 proxy.scrollTo(id, anchor: .center)

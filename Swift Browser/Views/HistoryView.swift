@@ -83,9 +83,6 @@ struct HistoryView: View {
     var filteredHistory: [HistoryItem] {
         var items = historyManager.history
 
-        let now = Date()
-        let calendar = Calendar.current
-
         items = items.filter(selectedPeriod.dateFilter)
 
         if !searchText.isEmpty {
@@ -285,7 +282,7 @@ struct HistoryView: View {
                             isSearchFocused = false
                         }
                     }
-                    .onChange(of: selectedItemID) { _, newValue in
+                    .onChange(of: selectedItemID) { newValue in
                         if let id = newValue {
                             withAnimation {
                                 proxy.scrollTo(id, anchor: .center)
