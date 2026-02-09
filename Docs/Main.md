@@ -16,6 +16,8 @@ The documentation is versioned to track the evolution of the browser's features 
 - [**v0.4 - Unified Styles**](v0.4/ReleaseNotes.md): Centralized fonts and icon sizes via `AppStyles.swift`.
 - [**v0.5 - Stability & Memory**](v0.5/ReleaseNotes.md): Bug fixes, memory leak hardening, and simple tab discard.
 - [**v0.6 - Tab Duplication & Favicon**](v0.6/ReleaseNotes.md): Duplicate current tab via ⌘D and double‑click in sidebar; Added Favicons to Tab previews.
+- [**v0.7 - Bookmarks page + History page**](v0.7/ReleaseNotes.md): History page + Bookmarks page
+- [**v0.8** - Adress Suggestion bar bugs\*\*](v0.8/ReleaseNotes.md): Polish new features, improve code, shortcuts control, Adress bar fix
 
 ## Philosophy
 
