@@ -12,7 +12,9 @@ The documentation for this project is maintained in the Docs/ directory. It incl
 
 ---
 
-![Newest Version of Browser](/Docs/img/SwiftBrowser_v1.0.png)
+| ![Browser](/Docs/img/SwiftBrowser_v1.0.png) | ![Welcome](/Docs/img/SplashScreen.png) |
+| :-----------------------------------------: | :------------------------------------: |
+|               Main Interface                |             Welcome Screen             |
 
 ## Table of Contents
 
