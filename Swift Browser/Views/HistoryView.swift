@@ -282,7 +282,7 @@ struct HistoryView: View {
                             isSearchFocused = false
                         }
                     }
-                    .onChange(of: selectedItemID) { newValue in
+                    .onChange(of: selectedItemID) { _, newValue in
                         if let id = newValue {
                             withAnimation {
                                 proxy.scrollTo(id, anchor: .center)

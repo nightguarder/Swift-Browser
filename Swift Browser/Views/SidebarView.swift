@@ -29,17 +29,17 @@ public struct SidebarView: View {
             Rectangle()
                 .fill(.ultraThinMaterial)
             
-            VStack(spacing: 0) {
+                VStack(spacing: AppSpacing.sidebarSectionSpacing) {
                 // Space Header
                 if isSidebarHovered {
-                    HStack(spacing: 8) {
+                    HStack(spacing: AppSpacing.sidebarItemSpacing) {
                         ZStack {
                             Circle()
                                 .fill(spaceManager.activeSpace.color)
-                                .frame(width: 24, height: 24)
+                                .frame(width: AppSpacing.smallIconSize, height: AppSpacing.smallIconSize)
 
                             Image(systemName: spaceManager.activeSpace.icon)
-                                .font(AppFont.captionBold)
+                                .font(AppFont.sidebarSpaceIcon)
                                 .foregroundColor(.white)
                         }
 
@@ -56,7 +56,7 @@ public struct SidebarView: View {
                     ZStack {
                         Circle()
                             .fill(spaceManager.activeSpace.color)
-                            .frame(width: 24, height: 24)
+                            .frame(width: AppSpacing.smallIconSize, height: AppSpacing.smallIconSize)
 
                         Image(systemName: spaceManager.activeSpace.icon)
                             .font(AppFont.sidebarIcon)
@@ -69,7 +69,7 @@ public struct SidebarView: View {
 
                 // Space Switcher
                 ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 4) {
+                    HStack(spacing: AppSpacing.sidebarItemSpacing) {
                         ForEach(spaceManager.spaces) { space in
                             SpaceIcon(
                                 space: space,
@@ -90,10 +90,10 @@ public struct SidebarView: View {
                     .padding(.horizontal, 8)
                     .padding(.vertical, 8)
 
-                HStack(spacing: isSidebarHovered ? 8 : 0) {
+                HStack(spacing: isSidebarHovered ? AppSpacing.sidebarItemSpacing : 0) {
                     Image(systemName: "magnifyingglass")
                         .font(AppFont.subtitle)
-                        .frame(width: 36, height: 36)
+                        .frame(width: AppSpacing.iconSize, height: AppSpacing.iconSize)
                         .foregroundColor(.secondary)
                     
                     if isSidebarHovered {
@@ -114,7 +114,7 @@ public struct SidebarView: View {
                     }
                 }
                 .background(Color.primary.opacity(0.1))
-                .cornerRadius(8)
+                .cornerRadius(AppSpacing.cornerRadius)
                 .padding(.horizontal, 8)
                 .padding(.bottom, 8)
                 .onTapGesture {
@@ -129,7 +129,7 @@ public struct SidebarView: View {
                     .padding(.bottom, 8)
 
                 ScrollView(.vertical, showsIndicators: false) {
-                    LazyVStack(spacing: 4) {
+                    LazyVStack(spacing: AppSpacing.sidebarItemSpacing) {
                         if tabSearchText.isEmpty {
                             let spaceTabs = tabManager.tabs.filter { $0.spaceId == spaceManager.activeSpaceId }
                             ForEach(spaceTabs) { tab in
@@ -186,12 +186,12 @@ public struct SidebarView: View {
                 
                  Spacer()
                  
-                 Button(action: { tabManager.addTab(in: spaceManager.activeSpaceId) }) {
-                     HStack(spacing: isSidebarHovered ? 8 : 0) {
+                  Button(action: { tabManager.addTab(in: spaceManager.activeSpaceId) }) {
+                      HStack(spacing: isSidebarHovered ? AppSpacing.sidebarItemSpacing : 0) {
 
-                         Image(systemName: "plus")
-                             .font(AppFont.subtitle)
-                             .frame(width: 36, height: 36)
+                      Image(systemName: "plus")
+                          .font(AppFont.subtitle)
+                          .frame(width: AppSpacing.iconSize, height: AppSpacing.iconSize)
                          
                          if isSidebarHovered {
                              Text("New Tab")
@@ -204,12 +204,12 @@ public struct SidebarView: View {
                              KeyboardShortcutHint("⌘T")
                          }
                      }
-                     .frame(maxWidth: .infinity, alignment: isSidebarHovered ? .leading : .center)
-                     .background(Color.primary.opacity(0.05))
-                     .cornerRadius(8)
-                 }
-                 .buttonStyle(.plain)
-                 .padding(8)
+                      .frame(maxWidth: .infinity, alignment: isSidebarHovered ? .leading : .center)
+                      .background(Color.primary.opacity(0.05))
+                      .cornerRadius(AppSpacing.cornerRadius)
+                  }
+                  .buttonStyle(.plain)
+                  .padding(8)
             }
         }
         .frame(width: isSidebarHovered ? AppSpacing.sidebarWidthExpanded : AppSpacing.sidebarWidthCollapsed)
@@ -239,10 +239,10 @@ struct SpaceIcon: View {
                         .frame(width: 24, height: 24)
                     
                     Image(systemName: space.icon)
-                        .font(.system(size: 14, weight: .medium))
+                        .font(AppFont.sidebarSpaceIcon)
                         .foregroundColor(isActive ? .white : .primary)
                 }
-                .frame(width: 28, height: 28)
+                .frame(width: AppSpacing.iconSize, height: AppSpacing.iconSize)
                 .background(isActive ? Color.clear : Color.primary.opacity(0.05))
                 .clipShape(Circle())
                 .overlay(
@@ -256,7 +256,7 @@ struct SpaceIcon: View {
             // Space name label
             if isSidebarHovered && isActive {
                 Text(space.name)
-                    .font(.system(size: 9, weight: .medium))
+                    .font(AppFont.sidebarBadge)
                     .lineLimit(1)
                     .padding(.horizontal, 3)
                     .padding(.vertical, 1)
@@ -292,16 +292,16 @@ public struct SidebarTabButton: View {
     }
     
     public var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: AppSpacing.sidebarItemSpacing) {
             FaviconView(urlString: tab.url, title: tab.title)
-                .frame(width: 18, height: 18)
+                .frame(width: AppSpacing.smallIconSize, height: AppSpacing.smallIconSize)
                 .padding(.leading, 2)
                 .padding(.trailing, 2)
 
             if isSidebarHovered {
                 Text(tab.title.isEmpty ? "New Tab" : tab.title)
                     .lineLimit(1)
-                    .font(AppFont.caption)
+                    .font(AppFont.sidebarTabTitle)
                     .foregroundColor(isCurrent ? .primary : .secondary)
                 
                 Spacer()
@@ -320,15 +320,15 @@ public struct SidebarTabButton: View {
                 }
             }
         }
-        .padding(.vertical, 8)
-        .padding(.horizontal, 8)
-        .frame(height: 36)
+        .padding(.vertical, 10)
+        .padding(.horizontal, 10)
+        .frame(height: AppSpacing.sidebarTabHeight)
         .background(
             isCurrent
             ? Color.primary.opacity(0.1)
             : (hoveredTabId == tab.id ? Color.primary.opacity(0.05) : Color.clear)
         )
-        .cornerRadius(8)
+        .cornerRadius(AppSpacing.cornerRadius)
         .contentShape(Rectangle())
         .onTapGesture(perform: onSelect)
         .onHover { hovering in

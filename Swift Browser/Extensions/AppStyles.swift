@@ -23,6 +23,7 @@ struct AppFont {
 
     // Sidebar-specific typography
     static let sidebarHeader = Font.system(size: 11, weight: .semibold)
+    static let sidebarTabTitle = Font.system(size: 14, weight: .medium)
     static let sidebarIcon = Font.system(size: 12, weight: .medium)
     static let sidebarSpaceIcon = Font.system(size: 16, weight: .medium)
     static let sidebarBadge = Font.system(size: 8, weight: .bold)
@@ -32,9 +33,12 @@ struct AppSpacing {
     static let iconSize: CGFloat = 24
     static let smallIconSize: CGFloat = 20
     static let toolbarHeight: CGFloat = 52
-    static let sidebarWidthCollapsed: CGFloat = 50
-    static let sidebarWidthExpanded: CGFloat = 200
-    static let menuItemPadding: CGFloat = 10
+    static let sidebarWidthCollapsed: CGFloat = 60
+    static let sidebarWidthExpanded: CGFloat = 240
+    static let sidebarItemSpacing: CGFloat = 12
+    static let sidebarSectionSpacing: CGFloat = 14
+    static let sidebarTabHeight: CGFloat = 36
+    static let menuItemPadding: CGFloat = 12
     static let cornerRadius: CGFloat = 8
 
     // Toolbar layout constants (from @Toolbarlayout.swift)

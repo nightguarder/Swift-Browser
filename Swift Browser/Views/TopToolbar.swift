@@ -23,7 +23,7 @@ struct TopToolbar: View {
     }
 
     public var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: AppSpacing.horizontalPadding) {
                 // Navigation Controls
                 HStack(spacing: 8) {
                     Button(action: { tabManager.currentTab?.webView?.goBack() }) {
@@ -48,7 +48,7 @@ struct TopToolbar: View {
                     }
                     .buttonStyle(.plain)
                 }
-                .padding(.leading, 12)
+                .padding(.leading, AppSpacing.horizontalPadding)
 
                 // Address Bar
                 HStack(spacing: 10) {
@@ -129,17 +129,21 @@ struct TopToolbar: View {
                     .opacity(0)
                     .frame(width: 0, height: 0)
                 }
-                .padding(10)
+                .padding(AppSpacing.menuItemPadding)
                 .background(Color.primary.opacity(0.05))
-                .cornerRadius(10)
+                .cornerRadius(AppSpacing.cornerRadius)
                 .overlay(
-                    RoundedRectangle(cornerRadius: 10)
+                    RoundedRectangle(cornerRadius: AppSpacing.cornerRadius)
                         .stroke(Color.primary.opacity(0.1), lineWidth: 0.5)
                 )
 
+                // Downloads Button
+                DownloadsButton()
+                    .padding(.trailing, 4)
+
                 // Control Center Menu Button
                 ControlCenterMenuButton(isExpanded: $isMenuExpanded)
-                    .padding(.trailing, 12)
+                    .padding(.trailing, AppSpacing.horizontalPadding)
             }
             .frame(height: AppSpacing.toolbarHeight)
         }
