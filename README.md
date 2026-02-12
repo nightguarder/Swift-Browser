@@ -6,8 +6,8 @@
 
 Swift Browser is a privacy-focused macOS browser built with SwiftUI and WebKit. It aims to provide a lightweight, fast, and user-friendly web experience with a strong emphasis on protecting user privacy.
 
-Docs
----
+## Docs
+
 The documentation for this project is maintained in the Docs/ directory. It includes versioned release notes and a user-facing roadmap.
 
 ---
@@ -76,15 +76,24 @@ The goal of this project is to keep it as lightweight as possible and prefer **s
 - [x] v0.7 - Bookmarks page + Favicon support on the HomePage
 - [x] v0.8 - Address bar shortcut suggestions; address bar suggestion list based on history
 
-#### v1.0:
+#### v1.0 - Core Browser:
 
-- Developer-oriented features: sandboxed profiles, Developer Tools (F12)
-- Design features: Improve toolbar, Sidebar Tab search
+- [x] Downloads support - Full download management with progress tracking, file organization, and popover UI
+- [x] Functioning Web Inspector - Safari developer tools integration with context menu and keyboard shortcuts (F12, ⌘⌥I)
+- [x] New Application Icon - Complete icon set for all macOS resolutions
+- [x] Enhanced Content Blocker - Blocking rules for ads, trackers, analytics, and fingerprinting with essential services whitelist
+- [x] Security Audit - App Transport Security enforcement, sandbox optimization, dark mode injection removal
+- [x] Code Cleanup - WebView container improvements, SwiftUI modernization, UI unification
 
-#### v2.0:
+#### v2.0 - Improvements:
 
-- Privacy features: content blocker, tracking protection, and anti-fingerprinting basics
-- Performance: memory footprint reductions, lazy loading, GPU acceleration optimizations
+- [ ] Extensions Support - Browser extensions framework for privacy extensions
+- [ ] Advanced Privacy - Enhanced anti-fingerprinting, smarter tracking protection
+- [ ] Performance - Further memory footprint reductions, GPU acceleration optimizations
+
+#### v.3.0 - Mobile
+
+- [] Mobile Support? - Need an Apple Developer License...
 
 ---
 
@@ -198,12 +207,12 @@ This project is licensed under the Apache License 2.0. See the LICENSE file for 
 
 ---
 
- ## DevTools
+## DevTools
 
- This build enables WebKit Web Inspector in WKWebView for development. To open DevTools, right-click on a page element and choose Inspect Element, or press Command-Option-I. A minimal DevTools button is available in the app's toolbar as a reminder.
+This build enables WebKit Web Inspector in WKWebView for development. To open DevTools, right-click on a page element and choose Inspect Element, or press Command-Option-I. A minimal DevTools button is available in the app's toolbar as a reminder.
 
- ---
+---
 
- ## Credits
+## Credits
 
 Thanks for the original idea and motivation to build Swift Browser to @idevanshrai and his [repository](https://github.com/idevanshrai/BrimBrowser-MacOS).
