@@ -41,13 +41,6 @@ public final class WebViewManager: NSObject, ObservableObject, WKNavigationDeleg
     
     // Pre-compiled static scripts for performance
     private static let dntScriptSource = "Object.defineProperty(navigator,'doNotTrack',{get:()=>'1'});"
-    private static let darkBackgroundCSS = """
-        (function(){
-            var s=document.createElement('style');
-            s.textContent='html,body{background:#1e1e1e !important}';
-            document.documentElement.appendChild(s);
-        })()
-        """
     #if DEBUG
     private static let consoleBridgeScript = """
         (function(){
@@ -99,16 +92,6 @@ public final class WebViewManager: NSObject, ObservableObject, WKNavigationDeleg
         )
         config.userContentController.addUserScript(consoleScript)
         #endif
-        
-        // Prevent white flash: Inject CSS at document start to set dark background immediately
-        // This runs before any rendering occurs, preventing the white background from showing
-        let flashPreventionScript = WKUserScript(
-            source: Self.darkBackgroundCSS,
-            injectionTime: .atDocumentStart,
-            forMainFrameOnly: true
-        )
-        config.userContentController.addUserScript(flashPreventionScript)
-
         
         webView = WKWebView(frame: .zero, configuration: config)
         

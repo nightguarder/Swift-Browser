@@ -76,6 +76,7 @@ public struct WebViewContainer: NSViewRepresentable {
         // Properly remove the webView from superview to prevent memory leaks.
         // The webView is safely managed by the WebViewManager/BrowserTab lifecycle.
         // Heavy cleanup (stopLoading, remove delegates) happens in WebViewManager.teardown().
+        // No dark mode injection - content renders with natural page colors.
         for subview in nsView.subviews {
             subview.removeFromSuperview()
         }
