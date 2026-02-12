@@ -12,26 +12,31 @@ The documentation for this project is maintained in the Docs/ directory. It incl
 
 ---
 
-![Newest Capture of Browser](/Docs/v0.1/HomePage_v0.1.png)
+![Newest Version of Browser](/Docs/img/SwiftBrowser_v1.0.png)
 
 ## Table of Contents
 
 - [Swift Browser](#swift-browser)
+  - [Docs](#docs)
   - [Table of Contents](#table-of-contents)
   - [Overview](#overview)
   - [Why another Browser?](#why-another-browser)
   - [Features](#features)
   - [Roadmap](#roadmap)
     - [v0.x:](#v0x)
-    - [v1.0:](#v10)
-    - [v2.0:](#v20)
+    - [v1.0 - Core Browser:](#v10---core-browser)
+    - [v2.0 - Improvements:](#v20---improvements)
+    - [v.3.0 - Mobile](#v30---mobile)
   - [Getting Started](#getting-started)
   - [Build \& Run](#build--run)
+    - [From Xcode](#from-xcode)
+    - [From Command Line (Without Xcode Running)](#from-command-line-without-xcode-running)
   - [Usage](#usage)
   - [Privacy \& Security](#privacy--security)
   - [Architecture](#architecture)
   - [Contributing \& Issues](#contributing--issues)
   - [License](#license)
+  - [DevTools](#devtools)
   - [Credits](#credits)
 
 ---
