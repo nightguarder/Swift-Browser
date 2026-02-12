@@ -98,6 +98,14 @@ public final class BookmarkManager: ObservableObject {
         scheduleSave()
     }
     
+    public func clearAllBookmarks() {
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            self.bookmarks.removeAll()
+            self.save()
+        }
+    }
+    
     private func scheduleSave() {
         saveWorkItem?.cancel()
         let workItem = DispatchWorkItem { [weak self] in

@@ -199,7 +199,7 @@ public struct SettingsView: View {
                 }
             }
         } message: {
-            Text("This will delete all bookmarks and reset settings. This cannot be undone.")
+            Text("This will reset the browser to factory defaults: delete all bookmarks, history, cookies, saved tabs, and settings. The browser will restart to the welcome screen. This cannot be undone.")
         }
     }
     
@@ -233,18 +233,46 @@ public struct SettingsView: View {
         let defaults = UserDefaults.standard
         let bundleID = "nightguarder.Swift-Browser"
 
+        // 1. Clear all UserDefaults
         defaults.dictionaryRepresentation().keys.filter { $0.hasPrefix(bundleID) || appSpecificKeys.contains($0) }.forEach { defaults.removeObject(forKey: $0) }
 
+        // 2. Clear website data (cookies, cache, local storage, etc.)
         let websiteDataTypes = WKWebsiteDataStore.allWebsiteDataTypes()
         let date = Date(timeIntervalSince1970: 0)
         WKWebsiteDataStore.default().removeData(ofTypes: websiteDataTypes, modifiedSince: date) { }
 
+        // 3. Clear HTTP cookies
         HTTPCookieStorage.shared.removeCookies(since: date)
 
+        // 4. Clear history
+        HistoryManager.shared.clearHistory()
+
+        // 5. Clear all bookmarks across all spaces
+        BookmarkManager.shared.clearAllBookmarks()
+
+        // 6. Reset spaces to defaults
+        SpaceManager.shared.resetToDefaultSpaces()
+
+        // 7. Clear session persistence (saved tabs)
+        SessionPersistence.shared.clearSession()
+
+        // 8. Clear all downloads
+        DownloadManager.shared.clearAllDownloads()
+
+        // 9. Reset to default settings
         defaults.set(true, forKey: "contentBlockerEnabled")
         defaults.set(DarkModeManager.DarkModePreference.system.rawValue, forKey: "darkModePreference")
+        defaults.set(true, forKey: "doNotTrackEnabled")
+        defaults.set(false, forKey: "developerModeEnabled")
+        defaults.set(true, forKey: "tabDiscardingEnabled")
 
-        HistoryManager.shared.clearHistory()
+        // 10. Reset hasLaunchedBefore to show Welcome screen on next launch
+        defaults.set(false, forKey: "hasLaunchedBefore")
+
+        // 11. Close all tabs to force welcome screen
+        DispatchQueue.main.async {
+            self.tabManager.closeAllTabs()
+        }
     }
 
     private let appSpecificKeys = [

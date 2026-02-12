@@ -193,6 +193,23 @@ public final class TabManager: ObservableObject {
         discardNonWebTabs()
     }
 
+    public func closeAllTabs() {
+        // Tear down all webviews first
+        for tab in tabs {
+            tab.webView?.teardown()
+            tab.webView = nil
+        }
+
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+            tabs.removeAll()
+            currentTab = nil
+            previousTabId = nil
+        }
+
+        mediaPlayingTabs.removeAll()
+        recentlyClosedTabs.removeAll()
+    }
+
     public func switchToTab(_ tab: BrowserTab) {
         // FIX: Switch to the tab's space first if it's in a different space
         if tab.spaceId != SpaceManager.shared.activeSpaceId {

@@ -85,4 +85,30 @@ public class SpaceManager: ObservableObject {
         HistoryManager.shared.setSpace(spaceId)
         BookmarkManager.shared.setSpace(spaceId)
     }
+    
+    public func resetToDefaultSpaces() {
+        // Clear all data stores first
+        dataStores.removeAll()
+        
+        // Reset to default spaces
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            
+            self.spaces = [
+                Space(name: "General", icon: "square.grid.2x2", colorName: "AccentColor"),
+                Space(name: "Work", icon: "briefcase", colorName: "blue"),
+                Space(name: "School", icon: "graduationcap", colorName: "orange"),
+                Space(name: "Private", icon: "shield.lefthalf.filled", colorName: "purple", isPrivate: true)
+            ]
+            
+            self.saveSpaces()
+            
+            // Set active space to first non-private space
+            if let defaultSpace = self.spaces.first(where: { !$0.isPrivate }) {
+                self.activeSpaceId = defaultSpace.id
+                HistoryManager.shared.setSpace(defaultSpace.id)
+                BookmarkManager.shared.setSpace(defaultSpace.id)
+            }
+        }
+    }
 }
