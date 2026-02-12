@@ -11,6 +11,9 @@ public class SpaceManager: ObservableObject {
     private let spacesKey = "com.swiftbrowser.spaces"
     private var dataStores: [UUID: WKWebsiteDataStore] = [:]
     
+    /// Shared process pool for all web views to ensure consistent TLS/Network state
+    public let processPool = WKProcessPool()
+    
     private init() {
         self.activeSpaceId = UUID() // Temporary init to allow self access
         

@@ -10,7 +10,7 @@ import WebKit
 import Combine
 
 // Observable store that owns the WKWebView and reports navigation state
-public final class WebViewManager: NSObject, ObservableObject, WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandler {
+public final class WebViewManager: NSObject, ObservableObject, WKNavigationDelegate, WKUIDelegate {
     public let webView: WKWebView
     @Published public var canGoBack: Bool = false
     @Published public var canGoForward: Bool = false
@@ -37,25 +37,8 @@ public final class WebViewManager: NSObject, ObservableObject, WKNavigationDeleg
     private let dataStore: WKWebsiteDataStore
     private let isPrivateSpace: Bool
 
-    private let defaultUserAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15"
-    
     // Pre-compiled static scripts for performance
     private static let dntScriptSource = "Object.defineProperty(navigator,'doNotTrack',{get:()=>'1'});"
-    #if DEBUG
-    private static let consoleBridgeScript = """
-        (function(){
-            var oldLog=console.log,oldWarn=console.warn,oldError=console.error,oldDebug=console.debug;
-            function sendToNative(type,args){
-                var msg=Array.from(args).map(v=>typeof v==='object'?JSON.stringify(v):String(v)).join(' ');
-                window.webkit.messageHandlers.logger.postMessage({type:type,message:msg});
-            }
-            console.log=function(){sendToNative('LOG',arguments);oldLog.apply(console,arguments)};
-            console.warn=function(){sendToNative('WARN',arguments);oldWarn.apply(console,arguments)};
-            console.error=function(){sendToNative('ERROR',arguments);oldError.apply(console,arguments)};
-            console.debug=function(){sendToNative('DEBUG',arguments);oldDebug.apply(console,arguments)};
-        })();
-        """
-    #endif
 
     public init(dataStore: WKWebsiteDataStore = .default(), isPrivateSpace: Bool = false, configuration: WKWebViewConfiguration? = nil) {
         self.dataStore = dataStore
@@ -63,6 +46,10 @@ public final class WebViewManager: NSObject, ObservableObject, WKNavigationDeleg
         
         let config = configuration ?? WKWebViewConfiguration()
         config.websiteDataStore = dataStore
+        config.processPool = SpaceManager.shared.processPool
+        
+        // Use applicationNameForUserAgent to allow WebKit to build a perfect Safari-like UA
+        config.applicationNameForUserAgent = "Version/18.0 Safari/605.1.15"
         
         // Disable media autoplay and require user interaction
         config.mediaTypesRequiringUserActionForPlayback = .all
@@ -83,16 +70,6 @@ public final class WebViewManager: NSObject, ObservableObject, WKNavigationDeleg
             config.userContentController.addUserScript(dntScript)
         }
         
-        #if DEBUG
-        // Console Bridge Script - DEBUG builds only to avoid production overhead
-        let consoleScript = WKUserScript(
-            source: Self.consoleBridgeScript,
-            injectionTime: .atDocumentStart,
-            forMainFrameOnly: false
-        )
-        config.userContentController.addUserScript(consoleScript)
-        #endif
-        
         webView = WKWebView(frame: .zero, configuration: config)
         
         super.init()
@@ -106,9 +83,6 @@ public final class WebViewManager: NSObject, ObservableObject, WKNavigationDeleg
         webView.navigationDelegate = self
         webView.uiDelegate = self
         
-        // Set standard User Agent to avoid "Disallowed User Agent" errors on Google/etc
-        webView.customUserAgent = defaultUserAgent
-        
         // Disable aggressive QuickLook preview behavior which can cause leaks
         webView.allowsMagnification = false
         
@@ -116,10 +90,9 @@ public final class WebViewManager: NSObject, ObservableObject, WKNavigationDeleg
         // The web view's background shows before page content renders
         webView.setValue(false, forKey: "drawsBackground")
         
-        // Use WeakScriptMessageHandler to avoid retain cycle
-        // Remove existing handler first to avoid crash if the configuration was inherited/reused
-        webView.configuration.userContentController.removeScriptMessageHandler(forName: "logger")
-        webView.configuration.userContentController.add(WeakScriptMessageHandler(self), name: "logger")
+        // Configure WebKit preferences to appear more like regular Safari
+        webView.configuration.preferences.setValue(true, forKey: "javaScriptCanOpenWindowsAutomatically")
+        webView.configuration.preferences.setValue(true, forKey: "allowsPictureInPictureMediaPlayback")
         
         // Enable Web Inspector for debugging (if enabled in settings)
         let devMode = UserDefaults.standard.bool(forKey: "developerModeEnabled")
@@ -205,7 +178,6 @@ public final class WebViewManager: NSObject, ObservableObject, WKNavigationDeleg
     }
 
     deinit {
-        print("DEBUG: WebViewManager deinit")
         let webView = webView
         if Thread.isMainThread {
             Self.teardownWebView(webView, cancellables: &cancellables, isTornDown: &isTornDown)
@@ -326,6 +298,13 @@ public final class WebViewManager: NSObject, ObservableObject, WKNavigationDeleg
         }
     }
     
+    // Handle authentication challenges (e.g. Cloudflare Private Access Tokens)
+    public func webView(_ webView: WKWebView, didReceive challenge: URLAuthenticationChallenge, completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void) {
+        // For most challenges, we can just use the default handling
+        // but explicitly allowing the challenge to proceed helps with some verification systems
+        completionHandler(.performDefaultHandling, nil)
+    }
+    
     public func webView(_ webView: WKWebView, navigationAction: WKNavigationAction, didBecome download: WKDownload) {
         DownloadManager.shared.startDownload(from: download, suggestedFilename: download.originalRequest?.url?.lastPathComponent ?? "download")
     }
@@ -363,12 +342,18 @@ public final class WebViewManager: NSObject, ObservableObject, WKNavigationDeleg
     }
 
     public func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+        // NSURLErrorCancelled (-999) is common during redirects and Cloudflare challenges
+        if (error as NSError).code == NSURLErrorCancelled { return }
+        
         #if DEBUG
         print("DEBUG: WebView didFail navigation: \(error.localizedDescription)")
         #endif
     }
 
     public func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+        // NSURLErrorCancelled (-999) is common during redirects and Cloudflare challenges
+        if (error as NSError).code == NSURLErrorCancelled { return }
+
         #if DEBUG
         print("DEBUG: WebView didFailProvisionalNavigation: \(error.localizedDescription)")
         #endif
@@ -451,32 +436,5 @@ public final class WebViewManager: NSObject, ObservableObject, WKNavigationDeleg
         if #available(macOS 13.3, iOS 16.4, *) {
             webView.isInspectable = enabled
         }
-    }
-
-    // WKScriptMessageHandler
-    public func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
-        if message.name == "logger" {
-            guard let body = message.body as? [String: Any],
-                  let type = body["type"] as? String,
-                  let content = body["message"] as? String else { return }
-
-            let logLine = "[\(type)] \(content)\n"
-            print(logLine, terminator: "")
-            return
-        }
-    }
-}
-
-// Internal helper to avoid retain cycles with WKScriptMessageHandler
-private class WeakScriptMessageHandler: NSObject, WKScriptMessageHandler {
-    private weak var delegate: WKScriptMessageHandler?
-    
-    init(_ delegate: WKScriptMessageHandler) {
-        self.delegate = delegate
-        super.init()
-    }
-    
-    func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
-        delegate?.userContentController(userContentController, didReceive: message)
     }
 }
