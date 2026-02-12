@@ -98,7 +98,7 @@ struct BookmarksView: View {
                         .onExitCommand {
                             isSearchFocused = false
                         }
-                        .onChange(of: isSearchFocused) { newValue in
+                        .onChange(of: isSearchFocused) { oldValue, newValue in
                             if !newValue {
                                 NSApp.keyWindow?.makeFirstResponder(nil)
                             }
@@ -175,7 +175,7 @@ struct BookmarksView: View {
                             isSearchFocused = false
                         }
                     }
-                    .onChange(of: selectedBookmarkID) { newValue in
+                    .onChange(of: selectedBookmarkID) { oldValue, newValue in
                         if let id = newValue {
                             withAnimation {
                                 proxy.scrollTo(id, anchor: .center)
@@ -192,7 +192,7 @@ struct BookmarksView: View {
         .onTapGesture {
             isSearchFocused = false
         }
-        .onChange(of: searchText) { newValue in
+        .onChange(of: searchText) { oldValue, newValue in
             if newValue.isEmpty {
                 addressSuggestions = []
             } else {

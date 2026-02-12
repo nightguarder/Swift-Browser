@@ -41,7 +41,7 @@ public final class WebViewManager: NSObject, ObservableObject, WKNavigationDeleg
     
     // Pre-compiled static scripts for performance
     private static let dntScriptSource = "Object.defineProperty(navigator,'doNotTrack',{get:()=>'1'});"
-    private static let noFlashCSS = """
+    private static let darkBackgroundCSS = """
         (function(){
             var s=document.createElement('style');
             s.textContent='html,body{background:#1e1e1e !important}';
@@ -103,7 +103,7 @@ public final class WebViewManager: NSObject, ObservableObject, WKNavigationDeleg
         // Prevent white flash: Inject CSS at document start to set dark background immediately
         // This runs before any rendering occurs, preventing the white background from showing
         let flashPreventionScript = WKUserScript(
-            source: Self.noFlashCSS,
+            source: Self.darkBackgroundCSS,
             injectionTime: .atDocumentStart,
             forMainFrameOnly: true
         )
@@ -325,7 +325,30 @@ public final class WebViewManager: NSObject, ObservableObject, WKNavigationDeleg
             decisionHandler(.cancel)
             return
         }
+        
+        // Handle downloads
+        if navigationAction.shouldPerformDownload {
+            decisionHandler(.download)
+            return
+        }
+        
         decisionHandler(.allow)
+    }
+    
+    public func webView(_ webView: WKWebView, decidePolicyFor navigationResponse: WKNavigationResponse, decisionHandler: @escaping (WKNavigationResponsePolicy) -> Void) {
+        if navigationResponse.canShowMIMEType {
+            decisionHandler(.allow)
+        } else {
+            decisionHandler(.download)
+        }
+    }
+    
+    public func webView(_ webView: WKWebView, navigationAction: WKNavigationAction, didBecome download: WKDownload) {
+        DownloadManager.shared.startDownload(from: download, suggestedFilename: download.originalRequest?.url?.lastPathComponent ?? "download")
+    }
+    
+    public func webView(_ webView: WKWebView, navigationResponse: WKNavigationResponse, didBecome download: WKDownload) {
+        DownloadManager.shared.startDownload(from: download, suggestedFilename: navigationResponse.response.suggestedFilename ?? "download")
     }
 
     // WKUIDelegate
@@ -337,6 +360,23 @@ public final class WebViewManager: NSObject, ObservableObject, WKNavigationDeleg
     public func webViewDidClose(_ webView: WKWebView) {
         // Handle window.close by calling our close callback
         onCloseRequested?()
+    }
+
+    // MARK: - File Upload Support (Native NSOpenPanel)
+    
+    public func webView(_ webView: WKWebView, runOpenPanelWith parameters: WKOpenPanelParameters, initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping ([URL]?) -> Void) {
+        let openPanel = NSOpenPanel()
+        openPanel.canChooseFiles = true
+        openPanel.canChooseDirectories = parameters.allowsDirectories
+        openPanel.allowsMultipleSelection = parameters.allowsMultipleSelection
+        
+        openPanel.begin { result in
+            if result == .OK {
+                completionHandler(openPanel.urls)
+            } else {
+                completionHandler(nil)
+            }
+        }
     }
 
     public func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {

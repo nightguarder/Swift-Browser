@@ -16,14 +16,31 @@ public struct WebViewContainer: UIViewRepresentable {
         self.webView = webView
     }
 
-    public func makeUIView(context: Context) -> WKWebView {
-        return webView
+    public func makeUIView(context: Context) -> UIView {
+        let view = UIView()
+        setupView(webView, in: view)
+        return view
     }
 
-    public func updateUIView(_ uiView: WKWebView, context: Context) {}
+    public func updateUIView(_ uiView: UIView, context: Context) {
+        if webView.superview != uiView {
+            setupView(webView, in: uiView)
+        }
+    }
 
-    public static func dismantleUIView(_ uiView: WKWebView, coordinator: ()) {
-        uiView.removeFromSuperview()
+    private func setupView(_ webView: WKWebView, in container: UIView) {
+        webView.removeFromSuperview()
+        webView.frame = container.bounds
+        webView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        container.addSubview(webView)
+    }
+
+    public static func dismantleUIView(_ uiView: UIView, coordinator: ()) {
+        // Properly remove the webView from superview to prevent memory leaks.
+        // Heavy cleanup (stopLoading, remove delegates) happens in WebViewManager.teardown().
+        for subview in uiView.subviews {
+            subview.removeFromSuperview()
+        }
     }
 }
 #elseif os(macOS)
@@ -34,16 +51,34 @@ public struct WebViewContainer: NSViewRepresentable {
         self.webView = webView
     }
 
-    public func makeNSView(context: Context) -> WKWebView {
-        return webView
+    public func makeNSView(context: Context) -> NSView {
+        let view = NSView()
+        setupView(webView, in: view)
+        return view
     }
 
-    public func updateNSView(_ nsView: WKWebView, context: Context) {}
+    public func updateNSView(_ nsView: NSView, context: Context) {
+        if webView.superview != nsView {
+            setupView(webView, in: nsView)
+        }
+    }
 
-    public static func dismantleNSView(_ nsView: WKWebView, coordinator: ()) {
-        // Do not stopLoading here; switching views should not
-        // interrupt the page or sever the Web Inspector connection.
-        nsView.removeFromSuperview()
+    private func setupView(_ webView: WKWebView, in container: NSView) {
+        // Ensure the webView is removed from any previous parent before attaching to the new one.
+        // This is critical for stability during tab switching or layout changes.
+        webView.removeFromSuperview()
+        webView.frame = container.bounds
+        webView.autoresizingMask = [.width, .height]
+        container.addSubview(webView)
+    }
+
+    public static func dismantleNSView(_ nsView: NSView, coordinator: ()) {
+        // Properly remove the webView from superview to prevent memory leaks.
+        // The webView is safely managed by the WebViewManager/BrowserTab lifecycle.
+        // Heavy cleanup (stopLoading, remove delegates) happens in WebViewManager.teardown().
+        for subview in nsView.subviews {
+            subview.removeFromSuperview()
+        }
     }
 }
 #endif
