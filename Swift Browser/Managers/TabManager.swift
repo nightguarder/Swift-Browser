@@ -22,6 +22,10 @@ public final class TabManager: ObservableObject {
     /// Tracks tabs playing media across all spaces - these should never be discarded
     @Published public var mediaPlayingTabs: Set<UUID> = []
     
+    /// Stores recently closed tabs for "reopen closed tab" functionality
+    private var recentlyClosedTabs: [(url: String, title: String, spaceId: UUID)] = []
+    private let maxClosedTabsHistory = 10
+    
     /// Timer for discarding background space WebViews after switching
     private var backgroundSpaceDiscardWorkItem: DispatchWorkItem?
 
@@ -135,6 +139,16 @@ public final class TabManager: ObservableObject {
         // Remove from media playing tracking
         mediaPlayingTabs.remove(closingId)
 
+        // Save tab info before closing (for reopen closed tab feature)
+        // Don't save internal pages or empty tabs
+        if !tab.url.isEmpty && !tab.url.hasPrefix("swiftbrowser://") {
+            recentlyClosedTabs.append((url: tab.url, title: tab.title, spaceId: tab.spaceId))
+            // Keep only the last N closed tabs
+            if recentlyClosedTabs.count > maxClosedTabsHistory {
+                recentlyClosedTabs.removeFirst()
+            }
+        }
+        
         // Proactively tear down WebKit resources before releasing the tab.
         tab.webView?.teardown()
         tab.webView = nil
@@ -222,7 +236,7 @@ public final class TabManager: ObservableObject {
         SpaceManager.shared.switchSpace(to: spaceId)
 
         let spaceTabs = tabs.filter { $0.spaceId == spaceId }
-        if let lastUsed = spaceTabs.max(by: { ($0.lastUsedAt ?? Date.distantPast) < ($1.lastUsedAt ?? Date.distantPast) }) {
+        if let lastUsed = spaceTabs.max(by: { $0.lastUsedAt < $1.lastUsedAt }) {
             switchToTab(lastUsed)
         } else {
             addTab(in: spaceId)
@@ -248,6 +262,10 @@ public final class TabManager: ObservableObject {
             // Get current active space to make sure we don't discard it
             let activeSpaceId = SpaceManager.shared.activeSpaceId
             
+            // Find the most recently used tab in the previous space to keep it alive
+            let previousSpaceTabs = self.tabs.filter { $0.spaceId == previousSpaceId }
+            let lastUsedInPreviousSpace = previousSpaceTabs.max(by: { $0.lastUsedAt < $1.lastUsedAt })
+            
             var discardedCount = 0
             for tab in self.tabs {
                 // Only discard tabs from the previous space (not current space)
@@ -260,6 +278,10 @@ public final class TabManager: ObservableObject {
                 
                 // Don't discard if it's the current tab
                 guard tab.id != self.currentTab?.id else { continue }
+                
+                // HARDENING: Don't discard the most recently used tab in that space.
+                // This preserves the Web Inspector and page state if the user switches back soon.
+                guard tab.id != lastUsedInPreviousSpace?.id else { continue }
                 
                 self.discardTabWebView(tab)
                 discardedCount += 1
@@ -319,6 +341,19 @@ public final class TabManager: ObservableObject {
     public func duplicateCurrentTab() {
         guard let current = currentTab else { return }
         duplicate(current)
+    }
+
+    /// Reopens the most recently closed tab
+    public func reopenClosedTab() {
+        guard !recentlyClosedTabs.isEmpty else { return }
+        
+        // Get the most recently closed tab
+        let closedTab = recentlyClosedTabs.removeLast()
+        
+        // Add the tab back in its original space (or current space if that space no longer exists)
+        let targetSpaceId = SpaceManager.shared.spaces.contains(where: { $0.id == closedTab.spaceId }) ? closedTab.spaceId : SpaceManager.shared.activeSpaceId
+        
+        addTab(url: closedTab.url, in: targetSpaceId)
     }
 
     // MARK: - Internal Pages

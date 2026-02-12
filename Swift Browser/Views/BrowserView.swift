@@ -389,7 +389,9 @@ struct BrowserView: View {
     private var shortcuts: some View {
         ZStack {
             Button("") { tabManager.addTab() }.keyboardShortcut("t", modifiers: .command)
+            Button("") { tabManager.reopenClosedTab() }.keyboardShortcut("t", modifiers: [.command, .shift])
             Button("") { if let tab = tabManager.currentTab { tabManager.closeTab(tab) } }.keyboardShortcut("w", modifiers: .command)
+            Button("") { NSApp.keyWindow?.close() }.keyboardShortcut("w", modifiers: [.command, .shift])
             Button("") { isAddressBarFocused = true }.keyboardShortcut("l", modifiers: .command)
             Button("") { tabManager.currentTab?.webView?.reload() }.keyboardShortcut("r", modifiers: .command)
             Button("") { tabManager.nextTab() }.keyboardShortcut("]", modifiers: [.command, .shift])
@@ -411,7 +413,23 @@ struct BrowserView: View {
             // Duplicate current tab
             Button("") { tabManager.duplicateCurrentTab() }.keyboardShortcut("d", modifiers: .command)
             Button("") {
-                if let url = tabManager.currentTab?.url {
+                // Get the actual URL to copy: prefer webView's URL, then address bar text
+                var urlToCopy: String? = nil
+                
+                if let webViewURL = tabManager.currentTab?.webView?.currentURL?.absoluteString,
+                   !webViewURL.isEmpty,
+                   !webViewURL.hasPrefix("swiftbrowser://") {
+                    urlToCopy = webViewURL
+                } else if let tabURL = tabManager.currentTab?.url,
+                          !tabURL.isEmpty,
+                          !tabURL.hasPrefix("swiftbrowser://") {
+                    urlToCopy = tabURL
+                } else if !tabManager.addressBarText.isEmpty,
+                          !tabManager.addressBarText.hasPrefix("swiftbrowser://") {
+                    urlToCopy = tabManager.addressBarText
+                }
+                
+                if let url = urlToCopy {
                     NSPasteboard.general.clearContents()
                     NSPasteboard.general.setString(url, forType: .string)
                 }
@@ -436,17 +454,25 @@ struct BrowserView: View {
                  }
              }.keyboardShortcut("f", modifiers: .command)
             
+            Button("") {
+                NotificationCenter.default.post(name: .toggleDownloadsPopover, object: nil)
+            }.keyboardShortcut("j", modifiers: .command)
+            
             // Developer Tools
             Button("") { 
                 #if os(macOS)
-                tabManager.currentTab?.webView?.webView.perform(Selector(("_showDeveloperTools:")))
+                if UserDefaults.standard.bool(forKey: "developerModeEnabled") {
+                    tabManager.currentTab?.webView?.webView.perform(Selector(("_showDeveloperTools:")))
+                }
                 #endif
             }
             .keyboardShortcut(.init(Character(UnicodeScalar(0xF70F)!)), modifiers: [])
             
             Button("") { 
                 #if os(macOS)
-                tabManager.currentTab?.webView?.webView.perform(Selector(("_showDeveloperTools:")))
+                if UserDefaults.standard.bool(forKey: "developerModeEnabled") {
+                    tabManager.currentTab?.webView?.webView.perform(Selector(("_showDeveloperTools:")))
+                }
                 #endif
             }
             .keyboardShortcut("i", modifiers: [.command, .option])
