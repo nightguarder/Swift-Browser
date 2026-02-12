@@ -33,8 +33,9 @@ The documentation for this project is maintained in the Docs/ directory. It incl
   - [Build \& Run](#build--run)
     - [From Xcode](#from-xcode)
     - [From Command Line (Without Xcode Running)](#from-command-line-without-xcode-running)
-  - [Usage](#usage)
+  - [Releases](#releases)
   - [Privacy \& Security](#privacy--security)
+  - [Ram usage \& Comparison](#ram-usage--comparison)
   - [Architecture](#architecture)
   - [Contributing \& Issues](#contributing--issues)
   - [License](#license)
@@ -156,11 +157,14 @@ open ~/Library/Developer/Xcode/DerivedData/Swift_Browser-*/Build/Products/Debug/
 
 ---
 
-## Usage
+## Releases
 
-- Launch the app from `/Applications` or `Xcode`
-- Use the integrated WebKit-based browser to navigate
-- Manage tabs and windows with native MacOS shortcuts
+_Note: The application is not signed! I don't have an Apple developer account.._
+
+1. Download latest version from Releases [page](https://github.com/nightguarder/Swift-Browser/releases)
+2. Extract the `.zip` archive.
+3. Move the `.app` into your `/Applications` folder
+4. Launch the `Swift_Browser app`
 
 ---
 
@@ -171,6 +175,14 @@ open ~/Library/Developer/Xcode/DerivedData/Swift_Browser-*/Build/Products/Debug/
 - Design philosophy: minimize data collection and maximize user control
 
 ---
+
+## Ram usage & Comparison
+
+| ![Safari RAM Usage](/Docs/img/Safari_app_4tabs.png) | ![Swift Browser RAM Usage](/Docs/img/Swift_Browser_5tabs.png) |
+| :-------------------------------------------------: | :-----------------------------------------------------------: |
+|           Safari: 4 tabs + app = 1 170 MB           |             Swift_Browser: 5 tabs + app = 716 MB              |
+
+Comparison between native `Safari` latest (18.0) and `Swift_Browser`. Not accurate but the same tabs were open. The result is **significant** - Swift uses **~1.6x less RAM** than Safari (1,170 MB → 716 MB)
 
 ## Architecture
 
@@ -185,6 +197,8 @@ open ~/Library/Developer/Xcode/DerivedData/Swift_Browser-*/Build/Products/Debug/
   - `Swift_BrowserApp.swift`
   - `BrowserView.swift`
   - `SplashScreen.swift
+- Use the integrated WebKit-based browser to navigate
+- Manage tabs and windows with native MacOS shortcuts
 
 ---
 
