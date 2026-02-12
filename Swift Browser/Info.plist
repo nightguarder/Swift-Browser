@@ -2,14 +2,14 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>UIBackgroundModes</key>
-	<array>
-		<string>remote-notification</string>
-	</array>
     <key>NSAppTransportSecurity</key>
     <dict>
         <key>NSAllowsArbitraryLoads</key>
-        <true/>
+        <false/>
+        <!-- 
+NSAllowsArbitraryLoads is a key in iOS app development that allows an app to bypass App Transport Security (ATS) restrictions, 
+enabling it to load resources from insecure HTTP connections. 
+However, using this setting can pose security risks, as it may expose sensitive data to potential threats -->
     </dict>
 </dict>
 </plist>

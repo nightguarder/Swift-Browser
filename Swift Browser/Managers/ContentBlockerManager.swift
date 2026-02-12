@@ -15,136 +15,135 @@ public final class ContentBlockerManager {
     [
         {
             "trigger": {
-                "url-filter": ".*google-analytics\\\\.com/.*",
-                "load-type": ["third-party"]
-            },
-            "action": {
-                "type": "block"
-            }
-        },
-        {
-            "trigger": {
-                "url-filter": ".*doubleclick\\\\.net/.*"
-            },
-            "action": {
-                "type": "block"
-            }
-        },
-        {
-            "trigger": {
-                "url-filter": ".*adservice\\\\.google\\\\..*/.*"
-            },
-            "action": {
-                "type": "block"
-            }
-        },
-        {
-            "trigger": {
-                "url-filter": "^https?://([^/]+\\\\.)?googleadservices\\\\.com/.*",
-                "resource-type": ["script", "image", "xmlhttprequest"],
-                "load-type": ["third-party"]
-            },
-            "action": { "type": "block" }
-        },
-        {
-            "trigger": {
-                "url-filter": "^https?://([^/]+\\\\.)?google\\\\.com/pagead/.*",
+                "url-filter": ".*\\/ad[s]?\\/.*",
                 "resource-type": ["script", "image", "xmlhttprequest"]
             },
-            "action": { "type": "block" }
+            "action": {
+                "type": "block"
+            }
         },
         {
             "trigger": {
-                "url-filter": "^https?://([^/]+\\\\.)?google\\\\.com/ads/.*",
+                "url-filter": ".*\\/ads\\/.*",
                 "resource-type": ["script", "image", "xmlhttprequest"]
             },
-            "action": { "type": "block" }
+            "action": {
+                "type": "block"
+            }
         },
         {
             "trigger": {
-                "url-filter": "^https?://([^/]+\\\\.)?gstatic\\\\.com/pagead/.*",
-                "resource-type": ["script", "image"]
+                "url-filter": ".*track.*",
+                "resource-type": ["script", "image", "xmlhttprequest"]
             },
-            "action": { "type": "block" }
+            "action": {
+                "type": "block"
+            }
         },
         {
             "trigger": {
-                "url-filter": "^https?://connect\\\\.facebook\\\\.net/.*",
-                "resource-type": ["script", "image", "xmlhttprequest"],
-                "load-type": ["third-party"]
+                "url-filter": ".*\\/tracker[s]?\\/.*",
+                "resource-type": ["script", "image", "xmlhttprequest"]
             },
-            "action": { "type": "block" }
+            "action": {
+                "type": "block"
+            }
         },
         {
             "trigger": {
-                "url-filter": "^https?://([^/]+\\\\.)?facebook\\\\.com/tr/.*",
-                "resource-type": ["script", "image", "xmlhttprequest"],
-                "load-type": ["third-party"]
+                "url-filter": ".*doubleclick\\\\.net.*"
             },
-            "action": { "type": "block" }
+            "action": {
+                "type": "block"
+            }
         },
         {
             "trigger": {
-                "url-filter": "^https?://([^/]+\\\\.)?facebook\\\\.com/v[0-9]+\\\\.[0-9]+/plugins/.*",
-                "resource-type": ["script"],
-                "load-type": ["third-party"]
+                "url-filter": ".*googlesyndication\\\\.com.*"
             },
-            "action": { "type": "block" }
+            "action": {
+                "type": "block"
+            }
         },
         {
             "trigger": {
-                "url-filter": "^https?://([^/]+\\\\.)?fbcdn\\\\.net/.*",
-                "resource-type": ["script", "xmlhttprequest"],
-                "load-type": ["third-party"]
+                "url-filter": ".*googleadservices\\\\.com.*"
             },
-            "action": { "type": "block" }
+            "action": {
+                "type": "block"
+            }
         },
         {
             "trigger": {
-                "url-filter": "^https?://platform\\\\.twitter\\\\.com/.*",
-                "resource-type": ["script", "image", "xmlhttprequest"],
-                "load-type": ["third-party"]
+                "url-filter": ".*google-analytics\\\\.com.*"
             },
-            "action": { "type": "block" }
+            "action": {
+                "type": "block"
+            }
         },
         {
             "trigger": {
-                "url-filter": "^https?://([^/]+\\\\.)?twitter\\\\.com/i/[a-z]+/analytics\\\\..*",
-                "resource-type": ["script"]
+                "url-filter": ".*googletagmanager\\\\.com.*"
             },
-            "action": { "type": "block" }
+            "action": {
+                "type": "block"
+            }
         },
         {
             "trigger": {
-                "url-filter": "^https?://syndication\\\\.twitter\\\\.com/.*",
-                "resource-type": ["script", "image", "xmlhttprequest"],
-                "load-type": ["third-party"]
+                "url-filter": ".*facebook\\\\.com/tr.*"
             },
-            "action": { "type": "block" }
+            "action": {
+                "type": "block"
+            }
         },
         {
             "trigger": {
-                "url-filter": "^https?://([^/]+\\\\.)?amazon-adsystem\\\\.com/.*",
-                "resource-type": ["script", "image", "xmlhttprequest"],
-                "load-type": ["third-party"]
+                "url-filter": ".*connect\\\\.facebook\\\\.net.*"
             },
-            "action": { "type": "block" }
+            "action": {
+                "type": "block"
+            }
         },
         {
             "trigger": {
-                "url-filter": "^https?://([^/]+\\\\.)?assoc-amazon\\\\.com/.*",
-                "resource-type": ["script", "image", "xmlhttprequest"],
-                "load-type": ["third-party"]
+                "url-filter": ".*adnxs\\\\.com.*"
             },
-            "action": { "type": "block" }
+            "action": {
+                "type": "block"
+            }
         },
         {
             "trigger": {
-                "url-filter": "^https?://([^/]+\\\\.)?bing\\\\.com/action/.*",
-                "resource-type": ["script", "xmlhttprequest"],
-                "load-type": ["third-party"]
+                "url-filter": ".*adsrvr\\\\.org.*"
             },
-            "action": { "type": "block" }
+            "action": {
+                "type": "block"
+            }
+        },
+        {
+            "trigger": {
+                "url-filter": ".*criteo\\\\.com.*"
+            },
+            "action": {
+                "type": "block"
+            }
+        },
+        {
+            "trigger": {
+                "url-filter": ".*taboola\\\\.com.*"
+            },
+            "action": {
+                "type": "block"
+            }
+        },
+        {
+            "trigger": {
+                "url-filter": ".*outbrain\\\\.com.*"
+            },
+            "action": {
+                "type": "block"
+            }
         },
         {
             "trigger": {
@@ -152,7 +151,9 @@ public final class ContentBlockerManager {
                 "resource-type": ["script", "image", "xmlhttprequest"],
                 "load-type": ["third-party"]
             },
-            "action": { "type": "block" }
+            "action": {
+                "type": "block"
+            }
         },
         {
             "trigger": {
@@ -160,7 +161,9 @@ public final class ContentBlockerManager {
                 "resource-type": ["script", "image", "xmlhttprequest"],
                 "load-type": ["third-party"]
             },
-            "action": { "type": "block" }
+            "action": {
+                "type": "block"
+            }
         },
         {
             "trigger": {
@@ -449,21 +452,25 @@ public final class ContentBlockerManager {
                 "url-filter": "^https?://([^/]+\\\\.)?youtube\\\\.com/ptracking",
                 "resource-type": ["script", "image", "xmlhttprequest"]
             },
-            "action": { "type": "block" }
+            "action": {
+                "type": "block"
+            }
         },
         {
             "trigger": {
-                "url-filter": "^https?://([^/]+\\\\.)?youtube\\\\.com/api/stats/.*",
-                "resource-type": ["script", "image", "xmlhttprequest"]
+                "url-filter": ".*openx\\\\.net.*"
             },
-            "action": { "type": "block" }
+            "action": {
+                "type": "block"
+            }
         },
         {
             "trigger": {
-                "url-filter": "^https?://([^/]+\\\\.)?youtube\\\\.com/pagead/.*",
-                "resource-type": ["script", "image", "xmlhttprequest"]
+                "url-filter": ".*mediago.*"
             },
-            "action": { "type": "block" }
+            "action": {
+                "type": "block"
+            }
         },
         {
             "trigger": {
@@ -471,7 +478,9 @@ public final class ContentBlockerManager {
                 "resource-type": ["script", "image", "xmlhttprequest"],
                 "load-type": ["third-party"]
             },
-            "action": { "type": "block" }
+            "action": {
+                "type": "block"
+            }
         },
         {
             "trigger": {
