@@ -19,6 +19,7 @@ The documentation is versioned to track the evolution of the browser's features 
 - [**v0.7 - Bookmarks page + History page**](v0.7/ReleaseNotes.md): History page + Bookmarks page
 - [**v0.8** - Adress Suggestion bar bugs\*\*](v0.8/ReleaseNotes.md): Polish new features, improve code, shortcuts control, Adress bar fix
 - [**v1.0 - Major Feature Release**](v1.0/ReleaseNotes.md): Downloads support, functioning Web Inspector, new icon, enhanced content blocker, security audit, and code cleanup.
+- [**v1.1 - No-Signature Build & Cloudflare Fix**](v1.1/ReleaseNotes.md): Cloudflare "Are you a human?" loop fix, no-signature distribution, RAM comparison with Safari.
 
 ## Philosophy
 
