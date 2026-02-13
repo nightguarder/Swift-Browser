@@ -12,6 +12,7 @@ import Combine
 // Observable store that owns the WKWebView and reports navigation state
 public final class WebViewManager: NSObject, ObservableObject, WKNavigationDelegate, WKUIDelegate {
     public let webView: WKWebView
+    public let duckPlayer = DuckPlayerManager()
     @Published public var canGoBack: Bool = false
     @Published public var canGoForward: Bool = false
     @Published public var isLoading: Bool = false
@@ -178,7 +179,7 @@ public final class WebViewManager: NSObject, ObservableObject, WKNavigationDeleg
     }
 
     deinit {
-        let webView = webView
+        let webView = self.webView
         if Thread.isMainThread {
             Self.teardownWebView(webView, cancellables: &cancellables, isTornDown: &isTornDown)
         } else {
@@ -279,6 +280,21 @@ public final class WebViewManager: NSObject, ObservableObject, WKNavigationDeleg
         if let url = navigationAction.request.url, url.scheme == "swiftbrowser" {
             decisionHandler(.cancel)
             return
+        }
+        
+        // DuckPlayer Redirection (Main Frame Only)
+        // Checks if the navigation is a YouTube video and redirects to DuckPlayer if so.
+        if navigationAction.targetFrame?.isMainFrame == true,
+           let url = navigationAction.request.url,
+           self.duckPlayer.shouldIntercept(url: url) {
+            
+            self.duckPlayer.handleInterception(url: url)
+            
+            // If interception results in presentation, cancel the navigation
+            if self.duckPlayer.isPresented {
+                decisionHandler(.cancel)
+                return
+            }
         }
         
         // Handle downloads

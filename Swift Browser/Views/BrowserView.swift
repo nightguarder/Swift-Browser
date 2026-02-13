@@ -13,6 +13,7 @@ struct BrowserView: View {
     @StateObject var bookmarkManager = BookmarkManager.shared
     @StateObject var historyManager = HistoryManager.shared
     @StateObject var findInPageManager = FindInPageManager()
+    
     @FocusState private var isAddressBarFocused: Bool
     @AppStorage("userName") private var userName: String = "User"
 
@@ -51,11 +52,11 @@ struct BrowserView: View {
                     if findInPageManager.isVisible {
                         VStack {
                              FindBarView(
-                                 manager: findInPageManager,
-                                 onNext: { findInPageManager.findNext(webView: tabManager.currentTab?.webView?.webView) },
-                                 onPrevious: { findInPageManager.findPrevious(webView: tabManager.currentTab?.webView?.webView) },
-                                 onClose: { findInPageManager.stopFinding(webView: tabManager.currentTab?.webView?.webView) }
-                             )
+                                  manager: findInPageManager,
+                                  onNext: { findInPageManager.findNext(webView: tabManager.currentTab?.webView?.webView) },
+                                  onPrevious: { findInPageManager.findPrevious(webView: tabManager.currentTab?.webView?.webView) },
+                                  onClose: { findInPageManager.stopFinding(webView: tabManager.currentTab?.webView?.webView) }
+                              )
                             Spacer()
                         }
                         .padding(.top, 50)
@@ -80,6 +81,17 @@ struct BrowserView: View {
                     selectedSearchIndex: $selectedSearchIndex,
                     isTabSearchFocused: $isTabSearchFocused
                 )
+            )
+            .overlay(
+                Group {
+                    if let currentTab = tabManager.currentTab,
+                       let webViewManager = currentTab.webView,
+                       webViewManager.duckPlayer.isPresented,
+                       let videoID = webViewManager.duckPlayer.currentVideoID {
+                        DuckPlayerView(videoID: videoID, manager: webViewManager.duckPlayer)
+                            .edgesIgnoringSafeArea(.all)
+                    }
+                }
             )
     }
     
