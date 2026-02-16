@@ -100,6 +100,9 @@ public struct SidebarView: View {
                         TextField("Search tabs...", text: $tabSearchText)
                             .textFieldStyle(.plain)
                             .focused($isTabSearchFocused)
+                            .onSubmit {
+                                // Consume the enter key to prevent system beep
+                            }
                         
                         Spacer()
                         

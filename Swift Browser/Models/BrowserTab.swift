@@ -74,5 +74,14 @@ public final class BrowserTab: Identifiable, ObservableObject {
                 }
             }
             .store(in: &cancellables)
+            
+        // Forward general WebViewManager changes (e.g. DuckPlayer state)
+        $webView
+            .compactMap { $0 }
+            .flatMap { $0.objectWillChange }
+            .sink { [weak self] _ in
+                self?.objectWillChange.send()
+            }
+            .store(in: &cancellables)
     }
 }
