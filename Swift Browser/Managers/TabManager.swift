@@ -331,6 +331,18 @@ public final class TabManager: ObservableObject {
         guard index >= 0 && index < tabs.count else { return }
         switchToTab(tabs[index])
     }
+    
+    /// Move a tab from one position to another within the tabs array
+    public func moveTab(from sourceIndex: Int, to destinationIndex: Int) {
+        guard sourceIndex >= 0 && sourceIndex < tabs.count,
+              destinationIndex >= 0 && destinationIndex < tabs.count,
+              sourceIndex != destinationIndex else { return }
+        
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+            let tab = tabs.remove(at: sourceIndex)
+            tabs.insert(tab, at: destinationIndex)
+        }
+    }
 
     // Duplicate Tab
     public func duplicate(_ tab: BrowserTab) {
