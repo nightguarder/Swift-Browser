@@ -16,32 +16,36 @@ struct ShortcutsView: View {
         // Tabs
         ShortcutItem(title: "New Tab", keys: "⌘ T", category: "Tabs"),
         ShortcutItem(title: "Close Tab", keys: "⌘ W", category: "Tabs"),
+        ShortcutItem(title: "Reopen Closed Tab", keys: "⌘ ⇧ T", category: "Tabs"),
+        ShortcutItem(title: "Close Window", keys: "⌘ ⇧ W", category: "Tabs"),
         ShortcutItem(title: "Next Tab", keys: "⌘ ⇧ ]", category: "Tabs"),
         ShortcutItem(title: "Previous Tab", keys: "⌘ ⇧ [", category: "Tabs"),
         ShortcutItem(title: "Next Tab (Ctrl)", keys: "⌃ Tab", category: "Tabs"),
         ShortcutItem(title: "Previous Tab (Ctrl)", keys: "⌃ ⇧ Tab", category: "Tabs"),
         ShortcutItem(title: "Duplicate Tab", keys: "⌘ D", category: "Tabs"),
         ShortcutItem(title: "Switch to Tab 1-9", keys: "⌘ 1-9", category: "Tabs"),
-        
+
         // Navigation
         ShortcutItem(title: "Focus Address Bar", keys: "⌘ L", category: "Navigation"),
         ShortcutItem(title: "Reload Page", keys: "⌘ R", category: "Navigation"),
         ShortcutItem(title: "Go Back", keys: "⌘ [", category: "Navigation"),
         ShortcutItem(title: "Go Forward", keys: "⌘ ]", category: "Navigation"),
-        
+
         // Zoom
         ShortcutItem(title: "Zoom In", keys: "⌘ +", category: "Zoom"),
         ShortcutItem(title: "Zoom Out", keys: "⌘ -", category: "Zoom"),
         ShortcutItem(title: "Reset Zoom", keys: "⌘ 0", category: "Zoom"),
-        
+
         // Browser
         ShortcutItem(title: "Open Bookmarks", keys: "⌘ ⌥ B", category: "Browser"),
         ShortcutItem(title: "Open History", keys: "⌘ Y", category: "Browser"),
+        ShortcutItem(title: "Open Settings", keys: "⌘ ,", category: "Browser"),
         ShortcutItem(title: "Open Shortcuts", keys: "⌘ ⇧ /", category: "Browser"),
-        
+
         // Tools
         ShortcutItem(title: "Toggle Find in Page", keys: "⌘ F", category: "Tools"),
         ShortcutItem(title: "Toggle Tab Search", keys: "⌘ K", category: "Tools"),
+        ShortcutItem(title: "Toggle Downloads", keys: "⌘ J", category: "Tools"),
         ShortcutItem(title: "Copy Page URL", keys: "⌘ ⌥ C", category: "Tools"),
         ShortcutItem(title: "Web Inspector", keys: "F12 / ⌘ ⌥ I", category: "Tools"),
     ]
@@ -78,6 +82,9 @@ struct ShortcutsView: View {
                     .textFieldStyle(RoundedBorderTextFieldStyle())
                     .frame(width: 300)
                     .focused($isSearchFocused)
+                    .onSubmit {
+                        // Consume the enter key to prevent system beep
+                    }
                     .onExitCommand {
                         isSearchFocused = false
                     }

@@ -723,9 +723,7 @@ public final class ContentBlockerManager {
             forIdentifier: "SwiftBrowserBlockList",
             encodedContentRuleList: Self.blocklistJSON
         ) { [weak self] ruleList, error in
-            if let error = error {
-                print("Content Blocker Error: \(error.localizedDescription)")
-            } else if let ruleList = ruleList {
+            if let ruleList = ruleList {
                 self?.compiledRuleList = ruleList
                 configuration.userContentController.add(ruleList)
             }

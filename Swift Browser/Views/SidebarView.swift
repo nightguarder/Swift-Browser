@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import UniformTypeIdentifiers
 
 public struct SidebarView: View {
     @ObservedObject var tabManager: TabManager
@@ -29,7 +30,7 @@ public struct SidebarView: View {
             Rectangle()
                 .fill(.ultraThinMaterial)
             
-                VStack(spacing: AppSpacing.sidebarSectionSpacing) {
+            VStack(spacing: AppSpacing.sidebarSectionSpacing) {
                 // Space Header
                 if isSidebarHovered {
                     HStack(spacing: AppSpacing.sidebarItemSpacing) {
@@ -100,6 +101,9 @@ public struct SidebarView: View {
                         TextField("Search tabs...", text: $tabSearchText)
                             .textFieldStyle(.plain)
                             .focused($isTabSearchFocused)
+                            .onSubmit {
+                                // Consume the enter key to prevent system beep
+                            }
                         
                         Spacer()
                         
@@ -128,61 +132,8 @@ public struct SidebarView: View {
                     .padding(.horizontal, 8)
                     .padding(.bottom, 8)
 
-                ScrollView(.vertical, showsIndicators: false) {
-                    LazyVStack(spacing: AppSpacing.sidebarItemSpacing) {
-                        if tabSearchText.isEmpty {
-                            let spaceTabs = tabManager.tabs.filter { $0.spaceId == spaceManager.activeSpaceId }
-                            ForEach(spaceTabs) { tab in
-                                  SidebarTabButton(
-                                      tab: tab,
-                                      isCurrent: tabManager.currentTab?.id == tab.id,
-                                      isSidebarHovered: isSidebarHovered,
-                                      hoveredTabId: $hoveredTab,
-                                      onClose: {
-                                          if hoveredTab == tab.id {
-                                              hoveredTab = nil
-                                          }
-                                          tabManager.closeTab(tab)
-                                      },
-                                      onSelect: {
-                                          tabManager.switchToTab(tab)
-                                      },
-                                      onDuplicate: {
-                                         tabManager.duplicate(tab)
-                                     }
-                                 )
-                            }
-                        } else {
-                            let query = tabSearchText.lowercased()
-                            let filteredTabs = tabManager.tabs.filter {
-                                ($0.title.lowercased().contains(query) || $0.url.lowercased().contains(query)) &&
-                                $0.spaceId == spaceManager.activeSpaceId
-                            }
-                            ForEach(filteredTabs) { tab in
-                                  SidebarTabButton(
-                                      tab: tab,
-                                      isCurrent: tabManager.currentTab?.id == tab.id,
-                                      isSidebarHovered: isSidebarHovered,
-                                      hoveredTabId: $hoveredTab,
-                                      onClose: {
-                                          if hoveredTab == tab.id {
-                                              hoveredTab = nil
-                                          }
-                                          tabManager.closeTab(tab)
-                                      },
-                                      onSelect: {
-                                          tabManager.switchToTab(tab)
-                                      },
-                                      onDuplicate: {
-                                         tabManager.duplicate(tab)
-                                     }
-                                 )
-                            }
-                        }
-                    }
-                    .padding(.horizontal, 6)
-                    .padding(.top, 10)
-                }
+                // Tab List
+                tabListView
                 
                  Spacer()
                  
@@ -222,55 +173,171 @@ public struct SidebarView: View {
         .animation(.spring(response: 0.3, dampingFraction: 0.8), value: isSidebarHovered)
         .overlay(Divider().frame(maxWidth: 1), alignment: .trailing)
     }
-}
-
-struct SpaceIcon: View {
-    let space: Space
-    let isActive: Bool
-    let isSidebarHovered: Bool
-    let onSelect: () -> Void
     
-    var body: some View {
-        VStack(spacing: 1) {
-            Button(action: onSelect) {
-                ZStack {
-                    Circle()
-                        .fill(isActive ? space.color : Color.clear)
-                        .frame(width: 24, height: 24)
-                    
-                    Image(systemName: space.icon)
-                        .font(AppFont.sidebarSpaceIcon)
-                        .foregroundColor(isActive ? .white : .primary)
+    // MARK: - Tab List
+    
+    private var tabListView: some View {
+        ScrollView(.vertical, showsIndicators: false) {
+            LazyVStack(spacing: AppSpacing.sidebarItemSpacing) {
+                if tabSearchText.isEmpty {
+                    let spaceTabs = tabManager.tabs.filter { $0.spaceId == spaceManager.activeSpaceId }
+                    ForEach(Array(spaceTabs.enumerated()), id: \.element.id) { index, tab in
+                        DraggableTabRow(
+                            tab: tab,
+                            isCurrent: tabManager.currentTab?.id == tab.id,
+                            isSidebarHovered: isSidebarHovered,
+                            hoveredTabId: $hoveredTab,
+                            onClose: {
+                                if hoveredTab == tab.id {
+                                    hoveredTab = nil
+                                }
+                                tabManager.closeTab(tab)
+                            },
+                            onSelect: {
+                                tabManager.switchToTab(tab)
+                            },
+                            onDuplicate: {
+                                tabManager.duplicate(tab)
+                            },
+                            onMove: { sourceID in
+                                handleTabMove(sourceID: sourceID, targetID: tab.id, spaceTabs: spaceTabs)
+                            }
+                        )
+                    }
+                } else {
+                    let query = tabSearchText.lowercased()
+                    let filteredTabs = tabManager.tabs.filter {
+                        ($0.title.lowercased().contains(query) || $0.url.lowercased().contains(query)) &&
+                        $0.spaceId == spaceManager.activeSpaceId
+                    }
+                    ForEach(filteredTabs) { tab in
+                        SidebarTabButton(
+                            tab: tab,
+                            isCurrent: tabManager.currentTab?.id == tab.id,
+                            isSidebarHovered: isSidebarHovered,
+                            hoveredTabId: $hoveredTab,
+                            onClose: {
+                                if hoveredTab == tab.id {
+                                    hoveredTab = nil
+                                }
+                                tabManager.closeTab(tab)
+                            },
+                            onSelect: {
+                                tabManager.switchToTab(tab)
+                            },
+                            onDuplicate: {
+                                tabManager.duplicate(tab)
+                            }
+                        )
+                    }
                 }
-                .frame(width: AppSpacing.iconSize, height: AppSpacing.iconSize)
-                .background(isActive ? Color.clear : Color.primary.opacity(0.05))
-                .clipShape(Circle())
-                .overlay(
-                    Circle()
-                        .stroke(space.color.opacity(0.3), lineWidth: isActive ? 1.5 : 0)
-                )
             }
-            .buttonStyle(.plain)
-            .help(space.name)
-            
-            // Space name label
-            if isSidebarHovered && isActive {
-                Text(space.name)
-                    .font(AppFont.sidebarBadge)
-                    .lineLimit(1)
-                    .padding(.horizontal, 3)
-                    .padding(.vertical, 1)
-                    .background(Color.primary.opacity(0.1))
-                    .cornerRadius(3)
-            } else {
-                // Placeholder to maintain consistent spacing
-                Color.clear
-                    .frame(height: 12)
-            }
+            .padding(.horizontal, 6)
+            .padding(.top, 10)
         }
-        .frame(width: 40)
+    }
+    
+    private func handleTabMove(sourceID: UUID, targetID: UUID, spaceTabs: [BrowserTab]) {
+        guard sourceID != targetID else { return }
+        
+        // Convert to global indices
+        guard let globalSourceIndex = tabManager.tabs.firstIndex(where: { $0.id == sourceID }),
+              let globalTargetIndex = tabManager.tabs.firstIndex(where: { $0.id == targetID }) else {
+            return
+        }
+        
+        // Move to target position
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+            tabManager.moveTab(from: globalSourceIndex, to: globalTargetIndex)
+        }
     }
 }
+
+// MARK: - Draggable Tab Row
+
+struct DraggableTabRow: View {
+    let tab: BrowserTab
+    let isCurrent: Bool
+    let isSidebarHovered: Bool
+    @Binding var hoveredTabId: UUID?
+    let onClose: () -> Void
+    let onSelect: () -> Void
+    let onDuplicate: () -> Void
+    let onMove: (UUID) -> Void
+    
+    @State private var isHovered = false
+    
+    var body: some View {
+        HStack(spacing: AppSpacing.sidebarItemSpacing) {
+            FaviconView(urlString: tab.url, title: tab.title)
+                .frame(width: AppSpacing.smallIconSize, height: AppSpacing.smallIconSize)
+                .padding(.leading, 2)
+                .padding(.trailing, 2)
+            
+            if isSidebarHovered {
+                Text(tab.title.isEmpty ? "New Tab" : tab.title)
+                    .lineLimit(1)
+                    .font(AppFont.sidebarTabTitle)
+                    .foregroundColor(isCurrent ? .primary : .secondary)
+                
+                Spacer()
+                
+                if isCurrent || isHovered {
+                    Button(action: onClose) {
+                        Image(systemName: "xmark")
+                            .font(AppFont.keyboardShortcut)
+                            .foregroundColor(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Close Tab (⌘W)")
+                }
+            }
+        }
+        .padding(.vertical, 10)
+        .padding(.horizontal, 10)
+        .frame(height: AppSpacing.sidebarTabHeight)
+        .background(
+            isCurrent
+            ? Color.primary.opacity(0.1)
+            : (isHovered ? Color.primary.opacity(0.05) : Color.clear)
+        )
+        .cornerRadius(AppSpacing.cornerRadius)
+        .contentShape(Rectangle())
+        .onTapGesture(perform: onSelect)
+        .onHover { hovering in
+            isHovered = hovering
+            hoveredTabId = hovering ? tab.id : nil
+            if hovering {
+                NSCursor.pointingHand.push()
+            } else {
+                NSCursor.pop()
+            }
+        }
+        .contextMenu {
+            Button("Duplicate Tab", action: onDuplicate)
+            Button("Close Tab", action: onClose)
+        }
+        .onDrag {
+            NSItemProvider(object: tab.id.uuidString as NSString)
+        }
+        .onDrop(of: [.plainText], isTargeted: nil) { providers in
+            guard let provider = providers.first else { return false }
+            
+            provider.loadItem(forTypeIdentifier: UTType.plainText.identifier, options: nil) { (data, error) in
+                DispatchQueue.main.async {
+                    if let data = data as? Data,
+                       let uuidString = String(data: data, encoding: .utf8),
+                       let sourceID = UUID(uuidString: uuidString) {
+                        onMove(sourceID)
+                    }
+                }
+            }
+            return true
+        }
+    }
+}
+
+// MARK: - Sidebar Tab Button
 
 public struct SidebarTabButton: View {
     @ObservedObject var tab: BrowserTab
@@ -314,9 +381,6 @@ public struct SidebarTabButton: View {
                     }
                     .buttonStyle(.plain)
                     .help("Close Tab (⌘W)")
-                    
-                    KeyboardShortcutHint("⌘W")
-                        .opacity(hoveredTabId == tab.id || isCurrent ? 1 : 0)
                 }
             }
         }
@@ -332,6 +396,7 @@ public struct SidebarTabButton: View {
         .contentShape(Rectangle())
         .onTapGesture(perform: onSelect)
         .onHover { hovering in
+            hoveredTabId = hovering ? tab.id : nil
             if hovering {
                 NSCursor.pointingHand.push()
             } else {
@@ -342,8 +407,53 @@ public struct SidebarTabButton: View {
             Button("Duplicate Tab", action: onDuplicate)
             Button("Close Tab", action: onClose)
         }
-        .onHover { hovering in
-            hoveredTabId = hovering ? tab.id : nil
+    }
+}
+
+// MARK: - Space Icon
+
+struct SpaceIcon: View {
+    let space: Space
+    let isActive: Bool
+    let isSidebarHovered: Bool
+    let onSelect: () -> Void
+    
+    var body: some View {
+        VStack(spacing: 1) {
+            Button(action: onSelect) {
+                ZStack {
+                    Circle()
+                        .fill(isActive ? space.color : Color.clear)
+                        .frame(width: 24, height: 24)
+                    
+                    Image(systemName: space.icon)
+                        .font(AppFont.sidebarSpaceIcon)
+                        .foregroundColor(isActive ? .white : .primary)
+                }
+                .frame(width: AppSpacing.iconSize, height: AppSpacing.iconSize)
+                .background(isActive ? Color.clear : Color.primary.opacity(0.05))
+                .clipShape(Circle())
+                .overlay(
+                    Circle()
+                        .stroke(space.color.opacity(0.3), lineWidth: isActive ? 1.5 : 0)
+                )
+            }
+            .buttonStyle(.plain)
+            .help(space.name)
+            
+            if isSidebarHovered && isActive {
+                Text(space.name)
+                    .font(AppFont.sidebarBadge)
+                    .lineLimit(1)
+                    .padding(.horizontal, 3)
+                    .padding(.vertical, 1)
+                    .background(Color.primary.opacity(0.1))
+                    .cornerRadius(3)
+            } else {
+                Color.clear
+                    .frame(height: 12)
+            }
         }
+        .frame(width: 40)
     }
 }

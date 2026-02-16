@@ -56,9 +56,18 @@ public struct TabSearchOverlay: View {
     
     private func setupKeyboardMonitor() {
         keyboardMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak tabManager] event in
-            guard isTabSearchVisible else { return event }
+            guard isTabSearchVisible,
+                  let window = NSApp.keyWindow,
+                  window.isKeyWindow else {
+                return event
+            }
             
-            // Handle Escape key (keyCode 53)
+            // Check if the search text field is the first responder
+            // Only consume navigation keys when the text field has focus
+            let firstResponder = window.firstResponder
+            let isTextFieldFocused = firstResponder is NSTextView || firstResponder is NSTextField
+            
+            // Handle Escape key (keyCode 53) - always consume when overlay is visible
             if event.keyCode == 53 {
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                     isTabSearchVisible = false
@@ -66,6 +75,9 @@ public struct TabSearchOverlay: View {
                 }
                 return nil // Consume the event
             }
+            
+            // Only consume navigation keys if text field is focused
+            guard isTextFieldFocused else { return event }
             
             let count = filteredTabs.count
             guard count > 0 else { return event }

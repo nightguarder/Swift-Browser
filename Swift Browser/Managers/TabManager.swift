@@ -274,8 +274,6 @@ public final class TabManager: ObservableObject {
         let workItem = DispatchWorkItem { [weak self] in
             guard let self = self else { return }
             
-            print("TabManager: Discarding WebViews from background space \(previousSpaceId)")
-            
             // Get current active space to make sure we don't discard it
             let activeSpaceId = SpaceManager.shared.activeSpaceId
             
@@ -304,9 +302,6 @@ public final class TabManager: ObservableObject {
                 discardedCount += 1
             }
             
-            if discardedCount > 0 {
-                print("TabManager: Discarded \(discardedCount) WebViews from background space")
-            }
         }
         
         backgroundSpaceDiscardWorkItem = workItem
@@ -330,6 +325,18 @@ public final class TabManager: ObservableObject {
     public func switchToIndex(_ index: Int) {
         guard index >= 0 && index < tabs.count else { return }
         switchToTab(tabs[index])
+    }
+    
+    /// Move a tab from one position to another within the tabs array
+    public func moveTab(from sourceIndex: Int, to destinationIndex: Int) {
+        guard sourceIndex >= 0 && sourceIndex < tabs.count,
+              destinationIndex >= 0 && destinationIndex < tabs.count,
+              sourceIndex != destinationIndex else { return }
+        
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+            let tab = tabs.remove(at: sourceIndex)
+            tabs.insert(tab, at: destinationIndex)
+        }
     }
 
     // Duplicate Tab
@@ -701,7 +708,6 @@ public final class TabManager: ObservableObject {
             restoreTabIfNeeded(currentTab)
         }
 
-        print("TabManager: Restored session with \(restoredTabs.count) tabs")
         return true
     }
 }

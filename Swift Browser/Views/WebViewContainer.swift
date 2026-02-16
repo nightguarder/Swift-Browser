@@ -52,24 +52,14 @@ public struct WebViewContainer: NSViewRepresentable {
     }
 
     public func makeNSView(context: Context) -> NSView {
-        let view = NSView()
-        setupView(webView, in: view)
+        let view = WebViewHostingView(webView: webView)
         return view
     }
 
     public func updateNSView(_ nsView: NSView, context: Context) {
-        if webView.superview != nsView {
-            setupView(webView, in: nsView)
+        if let hostingView = nsView as? WebViewHostingView {
+            hostingView.updateWebView(webView)
         }
-    }
-
-    private func setupView(_ webView: WKWebView, in container: NSView) {
-        // Ensure the webView is removed from any previous parent before attaching to the new one.
-        // This is critical for stability during tab switching or layout changes.
-        webView.removeFromSuperview()
-        webView.frame = container.bounds
-        webView.autoresizingMask = [.width, .height]
-        container.addSubview(webView)
     }
 
     public static func dismantleNSView(_ nsView: NSView, coordinator: ()) {
@@ -79,6 +69,37 @@ public struct WebViewContainer: NSViewRepresentable {
         // No dark mode injection - content renders with natural page colors.
         for subview in nsView.subviews {
             subview.removeFromSuperview()
+        }
+    }
+}
+
+// Custom NSView that hosts a WKWebView
+class WebViewHostingView: NSView {
+    private var webView: WKWebView?
+    
+    init(webView: WKWebView) {
+        self.webView = webView
+        super.init(frame: .zero)
+        setupWebView()
+    }
+    
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+    }
+    
+    private func setupWebView() {
+        guard let webView = webView else { return }
+        webView.removeFromSuperview()
+        webView.frame = bounds
+        webView.autoresizingMask = [.width, .height]
+        addSubview(webView)
+    }
+    
+    func updateWebView(_ newWebView: WKWebView) {
+        if webView !== newWebView {
+            webView?.removeFromSuperview()
+            webView = newWebView
+            setupWebView()
         }
     }
 }
