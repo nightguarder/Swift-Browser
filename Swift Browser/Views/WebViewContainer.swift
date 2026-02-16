@@ -73,7 +73,7 @@ public struct WebViewContainer: NSViewRepresentable {
     }
 }
 
-// Custom NSView that properly hosts a WKWebView and ensures it receives key events
+// Custom NSView that hosts a WKWebView
 class WebViewHostingView: NSView {
     private var webView: WKWebView?
     
@@ -100,36 +100,6 @@ class WebViewHostingView: NSView {
             webView?.removeFromSuperview()
             webView = newWebView
             setupWebView()
-        }
-    }
-    
-    override var acceptsFirstResponder: Bool {
-        return true
-    }
-    
-    override func becomeFirstResponder() -> Bool {
-        // Forward first responder to the webview so it can handle key events
-        if let webView = webView {
-            window?.makeFirstResponder(webView)
-            return true
-        }
-        return super.becomeFirstResponder()
-    }
-    
-    override func keyDown(with event: NSEvent) {
-        // Forward key events to the webview for proper handling (scrolling, etc.)
-        if let webView = webView {
-            webView.keyDown(with: event)
-        } else {
-            super.keyDown(with: event)
-        }
-    }
-    
-    override func keyUp(with event: NSEvent) {
-        if let webView = webView {
-            webView.keyUp(with: event)
-        } else {
-            super.keyUp(with: event)
         }
     }
 }
