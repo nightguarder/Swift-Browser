@@ -10,6 +10,7 @@ import WebKit
 
 public struct SettingsView: View {
     @ObservedObject var tabManager: TabManager
+    @ObservedObject private var duckPlayerSettings = DuckPlayerSettings.shared
     @State private var showResetConfirmation = false
     @AppStorage("contentBlockerEnabled") private var contentBlockerEnabled = true
     @AppStorage("darkModePreference") private var darkModePreference: DarkModeManager.DarkModePreference = .system
@@ -68,6 +69,62 @@ public struct SettingsView: View {
                             description: "Request sites not to track you",
                             isOn: $doNotTrackEnabled
                         )
+                    }
+                    
+                    // Duck Player Section
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Duck Player")
+                            .font(.system(size: 16, weight: .bold))
+                            .padding(.bottom, 4)
+                        
+                        // Mode Picker
+                        HStack {
+                            Image(systemName: "play.rectangle.fill")
+                                .foregroundColor(.orange)
+                                .font(.system(size: 20))
+                                .frame(width: 24)
+                            
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("YouTube Privacy Player")
+                                    .font(.system(size: 14, weight: .medium))
+                                Text(duckPlayerSettings.mode.subtitle)
+                                    .font(.system(size: 11))
+                                    .foregroundColor(.secondary)
+                            }
+                            
+                            Spacer()
+                            
+                            Picker("", selection: $duckPlayerSettings.mode) {
+                                ForEach(DuckPlayerMode.allCases) { mode in
+                                    Text(mode.displayName).tag(mode)
+                                }
+                            }
+                            .pickerStyle(.menu)
+                            .frame(width: 200)
+                        }
+                        .padding(12)
+                        .background(Color.orange.opacity(0.05))
+                        .cornerRadius(8)
+                        
+                        // Reset "Don't show again" if it was dismissed
+                        if duckPlayerSettings.mode == .alwaysAsk && duckPlayerSettings.alwaysAskOverlayHidden {
+                            HStack {
+                                Image(systemName: "arrow.counterclockwise")
+                                    .foregroundColor(.orange)
+                                    .font(.system(size: 14))
+                                
+                                Text("You dismissed the Duck Player button. ")
+                                    .font(.system(size: 12))
+                                    .foregroundColor(.secondary)
+                                
+                                Button("Show it again") {
+                                    duckPlayerSettings.alwaysAskOverlayHidden = false
+                                }
+                                .font(.system(size: 12))
+                                .buttonStyle(.link)
+                            }
+                            .padding(.horizontal, 12)
+                        }
                     }
                     
                     // Appearance Section
@@ -266,6 +323,9 @@ public struct SettingsView: View {
         defaults.set(false, forKey: "developerModeEnabled")
         defaults.set(true, forKey: "tabDiscardingEnabled")
 
+        // 10. Reset DuckPlayer settings
+        DuckPlayerSettings.shared.reset()
+
         // 10. Reset hasLaunchedBefore to show Welcome screen on next launch
         defaults.set(false, forKey: "hasLaunchedBefore")
 
@@ -277,6 +337,7 @@ public struct SettingsView: View {
 
     private let appSpecificKeys = [
         "userName", "contentBlockerEnabled", "darkModePreference",
-        "doNotTrackEnabled", "developerModeEnabled", "tabDiscardingEnabled"
+        "doNotTrackEnabled", "developerModeEnabled", "tabDiscardingEnabled",
+        "duckPlayerMode", "duckPlayerAskOverlayHidden"
     ]
 }

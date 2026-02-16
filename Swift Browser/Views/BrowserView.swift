@@ -85,11 +85,12 @@ struct BrowserView: View {
             .overlay(
                 Group {
                     if let currentTab = tabManager.currentTab,
-                       let webViewManager = currentTab.webView,
-                       webViewManager.duckPlayer.isPresented,
-                       let videoID = webViewManager.duckPlayer.currentVideoID {
-                        DuckPlayerView(videoID: videoID, manager: webViewManager.duckPlayer)
-                            .edgesIgnoringSafeArea(.all)
+                       let webViewManager = currentTab.webView {
+                        DuckPlayerOverlay(manager: webViewManager.duckPlayer)
+                        
+                        // Native pill overlay for YouTube pages
+                        DuckPlayerPillOverlay(manager: webViewManager.duckPlayer)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
                     }
                 }
             )
@@ -227,15 +228,35 @@ struct BrowserView: View {
         
         // Setup local monitor for key events when suggestions are showing
         keyEventMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
-            guard self.isAddressBarFocused else { return event }
+            // Only consume events if the address bar is focused AND the window is key
+            guard self.isAddressBarFocused,
+                  let window = NSApp.keyWindow,
+                  window.isKeyWindow else {
+                return event
+            }
+            
+            // Check if there are actual suggestions to navigate
+            // If not, don't consume arrow keys - let them pass to webview for scrolling
+            let query = self.tabManager.addressBarText.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+            let hasSuggestions = self.hasAddressBarSuggestions(for: query)
             
             switch event.keyCode {
             case 125: // Down arrow
-                self.handleSuggestionNavigation(direction: .down)
-                return nil // Consume event
+                // Only consume if there are suggestions and we're navigating them
+                if hasSuggestions && self.selectedSuggestionIndex >= 0 {
+                    self.handleSuggestionNavigation(direction: .down)
+                    return nil // Consume event
+                }
+                // If no suggestions or not navigating, pass to webview
+                return event
             case 126: // Up arrow
-                self.handleSuggestionNavigation(direction: .up)
-                return nil // Consume event
+                // Only consume if there are suggestions and we're navigating them
+                if hasSuggestions && self.selectedSuggestionIndex >= 0 {
+                    self.handleSuggestionNavigation(direction: .up)
+                    return nil // Consume event
+                }
+                // If no suggestions or not navigating, pass to webview
+                return event
             case 36: // Return
                 self.handleSuggestionSelection()
                 return nil // Consume event
@@ -247,6 +268,31 @@ struct BrowserView: View {
                 return event // Pass through
             }
         }
+    }
+    
+    private func hasAddressBarSuggestions(for query: String) -> Bool {
+        guard !query.isEmpty, !query.hasPrefix("swiftbrowser://") else { return false }
+        
+        let currentSpaceId = SpaceManager.shared.activeSpaceId
+        let isPrivateSpace = SpaceManager.shared.spaces.first { $0.id == currentSpaceId }?.isPrivate ?? false
+        
+        // Check if there are any matching bookmarks
+        if !isPrivateSpace {
+            let hasBookmarks = bookmarkManager.bookmarks.contains {
+                $0.title.lowercased().contains(query) || $0.url.lowercased().contains(query)
+            }
+            if hasBookmarks { return true }
+            
+            // Check if there are any matching history items
+            let hasHistory = historyManager.history.contains {
+                ($0.title?.lowercased().contains(query) ?? false) ||
+                $0.url.absoluteString.lowercased().contains(query)
+            }
+            if hasHistory { return true }
+        }
+        
+        // Always show search option for non-empty queries
+        return true
     }
     
     private func removeKeyboardMonitor() {
@@ -388,6 +434,13 @@ struct BrowserView: View {
             if let currentTab = tabManager.currentTab, let webView = currentTab.webView?.webView {
                 WebViewContainer(webView: webView)
                     .id(currentTab.id)
+                    .onTapGesture {
+                        // Defocus address bar when clicking on webview
+                        if isAddressBarFocused {
+                            isAddressBarFocused = false
+                            NSApp.keyWindow?.makeFirstResponder(nil)
+                        }
+                    }
             } else {
                 ProgressView()
                     .progressViewStyle(.circular)
@@ -406,6 +459,8 @@ struct BrowserView: View {
             Button("") { NSApp.keyWindow?.close() }.keyboardShortcut("w", modifiers: [.command, .shift])
             Button("") { isAddressBarFocused = true }.keyboardShortcut("l", modifiers: .command)
             Button("") { tabManager.currentTab?.webView?.reload() }.keyboardShortcut("r", modifiers: .command)
+            Button("") { tabManager.currentTab?.webView?.goBack() }.keyboardShortcut("[", modifiers: .command)
+            Button("") { tabManager.currentTab?.webView?.goForward() }.keyboardShortcut("]", modifiers: .command)
             Button("") { tabManager.nextTab() }.keyboardShortcut("]", modifiers: [.command, .shift])
             Button("") { tabManager.previousTab() }.keyboardShortcut("[", modifiers: [.command, .shift])
             Button("") { tabManager.nextTab() }.keyboardShortcut(.tab, modifiers: .control)
@@ -456,6 +511,7 @@ struct BrowserView: View {
             }.keyboardShortcut("k", modifiers: .command)
             Button("") { tabManager.openBookmarks() }.keyboardShortcut("b", modifiers: [.command, .option])
             Button("") { tabManager.openHistory() }.keyboardShortcut("y", modifiers: .command)
+            Button("") { tabManager.openSettings() }.keyboardShortcut(",", modifiers: .command)
             Button("") { tabManager.openShortcuts() }.keyboardShortcut("/", modifiers: [.command, .shift])
             Button("") {
                 withAnimation {
@@ -491,5 +547,16 @@ struct BrowserView: View {
         }
         .opacity(0)
         .allowsHitTesting(false)
+    }
+}
+
+struct DuckPlayerOverlay: View {
+    @ObservedObject var manager: DuckPlayerManager
+    
+    var body: some View {
+        if manager.isPresented, let videoID = manager.currentVideoID {
+            DuckPlayerView(videoID: videoID, manager: manager)
+                .edgesIgnoringSafeArea(.all)
+        }
     }
 }

@@ -52,8 +52,10 @@ public final class WebViewManager: NSObject, ObservableObject, WKNavigationDeleg
         // Use applicationNameForUserAgent to allow WebKit to build a perfect Safari-like UA
         config.applicationNameForUserAgent = "Version/18.0 Safari/605.1.15"
         
-        // Disable media autoplay and require user interaction
-        config.mediaTypesRequiringUserActionForPlayback = .all
+        // Disable media autoplay and require user interaction ONLY if not explicitly configured
+        if configuration == nil {
+            config.mediaTypesRequiringUserActionForPlayback = .all
+        }
         
         // Upgrade known hosts to HTTPS (Mixed Content Block)
         if #available(macOS 11.0, *) {
@@ -77,6 +79,9 @@ public final class WebViewManager: NSObject, ObservableObject, WKNavigationDeleg
         
         setupWebView()
         setupObservers()
+        
+        // Attach DuckPlayer KVO observer after webView is created
+        duckPlayer.attach(to: webView)
     }
 
     private func setupWebView() {
@@ -151,6 +156,13 @@ public final class WebViewManager: NSObject, ObservableObject, WKNavigationDeleg
         
         // Monitor media playback state changes
         startMediaPlaybackMonitoring()
+        
+        // Forward DuckPlayer changes
+        duckPlayer.objectWillChange
+            .sink { [weak self] _ in
+                self?.objectWillChange.send()
+            }
+            .store(in: &cancellables)
     }
     
     private func startMediaPlaybackMonitoring() {
@@ -201,6 +213,9 @@ public final class WebViewManager: NSObject, ObservableObject, WKNavigationDeleg
 
         stopMediaPlaybackMonitoring()
         onMediaPlaybackStateChanged?(false) // Notify that media stopped
+        
+        // Detach DuckPlayer KVO observer
+        duckPlayer.detach()
         
         Self.teardownWebView(webView, cancellables: &cancellables, isTornDown: &isTornDown)
     }
@@ -283,18 +298,16 @@ public final class WebViewManager: NSObject, ObservableObject, WKNavigationDeleg
         }
         
         // DuckPlayer Redirection (Main Frame Only)
-        // Checks if the navigation is a YouTube video and redirects to DuckPlayer if so.
+        // In "Always Open" mode, intercept YouTube video navigations and open in DuckPlayer
+        // instead of loading the YouTube page. In "Ask" mode, let the page load normally
+        // and the injected JS will show the overlay button.
         if navigationAction.targetFrame?.isMainFrame == true,
            let url = navigationAction.request.url,
-           self.duckPlayer.shouldIntercept(url: url) {
+           self.duckPlayer.shouldInterceptNavigation(url: url) {
             
-            self.duckPlayer.handleInterception(url: url)
-            
-            // If interception results in presentation, cancel the navigation
-            if self.duckPlayer.isPresented {
-                decisionHandler(.cancel)
-                return
-            }
+            self.duckPlayer.handleAutoRedirect(url: url)
+            decisionHandler(.cancel)
+            return
         }
         
         // Handle downloads

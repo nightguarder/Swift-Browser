@@ -10,49 +10,50 @@ import WebKit
 
 public struct DuckPlayerNavigator {
     
-    public static func getDuckURL(for youtubeURL: URL) -> URL? {
-        guard let components = URLComponents(url: youtubeURL, resolvingAgainstBaseURL: true),
-              let queryItems = components.queryItems,
-              let videoID = queryItems.first(where: { $0.name == "v" })?.value else {
+    /// Creates a privacy-focused embed URL using youtube-nocookie.com
+    /// Format: youtube-nocookie.com/embed/{id}?rel=0&playsinline=1&color=white&autoplay=1
+    public static func getEmbedURL(for youtubeURL: URL) -> URL? {
+        guard let videoID = extractVideoID(from: youtubeURL) else {
             return nil
         }
         
-        // This is the Web Player URL.
-        // Format: https://duckduckgo.com/?q={ID}&iax=videos&ia=videos&iai={ID}
-        // We set 'q' to the ID or a generic term to ensure video vertical triggers.
-        var duckComponents = URLComponents(string: "https://duckduckgo.com/")
-        duckComponents?.queryItems = [
-            URLQueryItem(name: "q", value: videoID), 
-            URLQueryItem(name: "iax", value: "videos"),
-            URLQueryItem(name: "ia", value: "videos"),
-            URLQueryItem(name: "iai", value: videoID)
+        var components = URLComponents(string: "https://www.youtube-nocookie.com/embed/\(videoID)")
+        guard components != nil else { return nil }
+        components?.queryItems = [
+            URLQueryItem(name: "rel", value: "0"),
+            URLQueryItem(name: "playsinline", value: "1"),
+            URLQueryItem(name: "color", value: "white"),
+            URLQueryItem(name: "autoplay", value: "1"),
+            URLQueryItem(name: "fs", value: "1"),  // Enable fullscreen button
+            URLQueryItem(name: "modestbranding", value: "1"),  // Reduce YouTube branding
+            URLQueryItem(name: "iv_load_policy", value: "3")  // Hide annotations
         ]
         
-        return duckComponents?.url
+        return components?.url
     }
     
-    // Alternative: The Embed Player (Private)
-    public static func getEmbedURL(for youtubeURL: URL) -> URL? {
-        guard let components = URLComponents(url: youtubeURL, resolvingAgainstBaseURL: true),
-              let queryItems = components.queryItems,
-              let videoID = queryItems.first(where: { $0.name == "v" })?.value else {
-            return nil
-        }
-        
-        return URL(string: "https://www.youtube-nocookie.com/embed/\(videoID)?autoplay=1&iv_load_policy=3&modestbranding=1&rel=0")
+    /// Creates an internal duck://player/{videoID} URL for navigation interception
+    public static func getDuckPlayerURL(videoID: String) -> URL? {
+        return URL(string: "duck://player/\(videoID)")
     }
 
     public static func isYouTubeVideo(_ url: URL) -> Bool {
         guard let host = url.host?.lowercased() else { return false }
-        return host.contains("youtube.com") || host.contains("youtu.be")
+        return host == "youtube.com" || host == "www.youtube.com" || host == "m.youtube.com" || host == "youtu.be"
+    }
+    
+    public static func isYouTubeWatchPage(_ url: URL) -> Bool {
+        guard isYouTubeVideo(url) else { return false }
+        return url.path == "/watch" || url.path.hasPrefix("/watch")
     }
 
     public static func extractVideoID(from url: URL) -> String? {
         let host = url.host?.lowercased() ?? ""
 
         // Handle youtu.be/{VIDEO_ID}
-        if host.contains("youtu.be") {
-            return url.lastPathComponent
+        if host == "youtu.be" {
+            let videoID = url.lastPathComponent
+            return isValidVideoID(videoID) ? videoID : nil
         }
 
         // Handle youtube.com/watch?v={VIDEO_ID}
@@ -65,9 +66,18 @@ public struct DuckPlayerNavigator {
 
         // Handle youtube.com/embed/{VIDEO_ID}
         if url.pathComponents.count > 2 && url.pathComponents[1] == "embed" {
-            return url.pathComponents[2]
+            let videoID = url.pathComponents[2]
+            return isValidVideoID(videoID) ? videoID : nil
         }
 
         return nil
+    }
+    
+    /// Validates that a string is a valid YouTube video ID format
+    /// YouTube video IDs are typically 11 characters, alphanumeric with hyphens and underscores
+    private static func isValidVideoID(_ id: String) -> Bool {
+        guard !id.isEmpty else { return false }
+        let allowedCharacters = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-_"))
+        return id.unicodeScalars.allSatisfy { allowedCharacters.contains($0) }
     }
 }
