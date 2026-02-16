@@ -78,10 +78,7 @@ class HistoryManager: ObservableObject {
     }
     
     private func saveHistory() {
-        guard let encoded = try? JSONEncoder().encode(history) else {
-            print("HistoryManager: Failed to encode history")
-            return
-        }
+        guard let encoded = try? JSONEncoder().encode(history) else { return }
         UserDefaults.standard.set(encoded, forKey: storageKey)
     }
     

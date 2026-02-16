@@ -274,8 +274,6 @@ public final class TabManager: ObservableObject {
         let workItem = DispatchWorkItem { [weak self] in
             guard let self = self else { return }
             
-            print("TabManager: Discarding WebViews from background space \(previousSpaceId)")
-            
             // Get current active space to make sure we don't discard it
             let activeSpaceId = SpaceManager.shared.activeSpaceId
             
@@ -304,9 +302,6 @@ public final class TabManager: ObservableObject {
                 discardedCount += 1
             }
             
-            if discardedCount > 0 {
-                print("TabManager: Discarded \(discardedCount) WebViews from background space")
-            }
         }
         
         backgroundSpaceDiscardWorkItem = workItem
@@ -713,7 +708,6 @@ public final class TabManager: ObservableObject {
             restoreTabIfNeeded(currentTab)
         }
 
-        print("TabManager: Restored session with \(restoredTabs.count) tabs")
         return true
     }
 }

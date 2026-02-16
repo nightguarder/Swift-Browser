@@ -112,8 +112,6 @@ public final class DownloadManager: NSObject, ObservableObject, WKDownloadDelega
             counter += 1
         }
         
-        print("DownloadManager: Saving to \(finalURL.path)")
-        
         // Store the final destination in the task
         if let task = activeDownloads[download] {
             DispatchQueue.main.async {
@@ -134,7 +132,6 @@ public final class DownloadManager: NSObject, ObservableObject, WKDownloadDelega
     }
     
     public func downloadDidFinish(_ download: WKDownload) {
-        print("DownloadManager: Finished download \(download.originalRequest?.url?.absoluteString ?? "")")
         if let task = activeDownloads[download] {
             DispatchQueue.main.async {
                 if let destinationURL = task.localFileURL {
@@ -150,7 +147,6 @@ public final class DownloadManager: NSObject, ObservableObject, WKDownloadDelega
     }
     
     public func download(_ download: WKDownload, didFailWithError error: Error, resumeData: Data?) {
-        print("DownloadManager Error: \(error.localizedDescription) (Domain: \((error as NSError).domain), Code: \((error as NSError).code))")
         if let task = activeDownloads[download] {
             DispatchQueue.main.async {
                 task.fail(with: error)

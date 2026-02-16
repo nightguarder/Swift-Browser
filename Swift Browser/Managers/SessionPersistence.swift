@@ -111,9 +111,8 @@ class SessionPersistence {
             let data = try JSONEncoder().encode(session)
             try data.write(to: fileURL, options: .atomic)
             try? FileManager.default.setAttributes([.protectionKey: FileProtectionType.complete], ofItemAtPath: fileURL.path)
-            print("SessionPersistence: Saved \(persistedTabs.count) tabs")
         } catch {
-            print("SessionPersistence: Failed to save session - \(error)")
+            // Silent fail - session persistence is not critical
         }
     }
 
@@ -127,10 +126,8 @@ class SessionPersistence {
         do {
             let data = try Data(contentsOf: fileURL)
             let session = try JSONDecoder().decode(PersistedSession.self, from: data)
-            print("SessionPersistence: Restored \(session.tabs.count) tabs")
             return session
         } catch {
-            print("SessionPersistence: Failed to load session - \(error)")
             return nil
         }
     }
@@ -142,7 +139,5 @@ class SessionPersistence {
         if let fileURL = sessionFileURL {
             try? fileManager.removeItem(at: fileURL)
         }
-
-        print("SessionPersistence: Session cleared")
     }
 }
