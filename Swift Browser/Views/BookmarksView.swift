@@ -95,6 +95,9 @@ struct BookmarksView: View {
                         .textFieldStyle(RoundedBorderTextFieldStyle())
                         .frame(width: 300)
                         .focused($isSearchFocused)
+                        .onSubmit {
+                            // Consume the enter key to prevent system beep
+                        }
                         .onExitCommand {
                             isSearchFocused = false
                         }
