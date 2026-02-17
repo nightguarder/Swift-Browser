@@ -342,7 +342,7 @@ public final class TabManager: ObservableObject {
     // Duplicate Tab
     public func duplicate(_ tab: BrowserTab) {
         let space = SpaceManager.shared.spaces.first(where: { $0.id == tab.spaceId }) ?? SpaceManager.shared.activeSpace
-        let dataStore = SpaceManager.shared.websiteDataStore(for: space)
+        let dataStore = SpaceManager.shared.cookieDataStore(for: space)
         let webView = WebViewManager(dataStore: dataStore, isPrivateSpace: space.isPrivate)
         let newTab = BrowserTab(title: tab.title, url: tab.url, spaceId: tab.spaceId, webView: webView)
         setupManagerCallbacks(webView, for: newTab)
@@ -481,7 +481,7 @@ public final class TabManager: ObservableObject {
 
         if tab.webView == nil {
             let space = SpaceManager.shared.spaces.first(where: { $0.id == tab.spaceId }) ?? SpaceManager.shared.activeSpace
-            let dataStore = SpaceManager.shared.websiteDataStore(for: space)
+            let dataStore = SpaceManager.shared.cookieDataStore(for: space)
             let manager = WebViewManager(dataStore: dataStore, isPrivateSpace: space.isPrivate)
             setupManagerCallbacks(manager, for: tab)
             tab.webView = manager
@@ -496,7 +496,7 @@ public final class TabManager: ObservableObject {
         }
 
         let space = SpaceManager.shared.spaces.first(where: { $0.id == tab.spaceId }) ?? SpaceManager.shared.activeSpace
-        let dataStore = SpaceManager.shared.websiteDataStore(for: space)
+        let dataStore = SpaceManager.shared.cookieDataStore(for: space)
         let manager = WebViewManager(dataStore: dataStore, isPrivateSpace: space.isPrivate)
         setupManagerCallbacks(manager, for: tab)
         tab.webView = manager

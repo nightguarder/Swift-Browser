@@ -7,15 +7,16 @@ public class SpaceManager: ObservableObject {
     
     @Published public var spaces: [Space] = []
     @Published public var activeSpaceId: UUID
+    @Published public var isLocked: Bool = true
     
     private let spacesKey = "com.swiftbrowser.spaces"
-    private var dataStores: [UUID: WKWebsiteDataStore] = [:]
+    private let hasInitializedKey = "com.swiftbrowser.hasInitializedEncryption"
+    private var cookieStores: [UUID: WKWebsiteDataStore] = [:]
     
-    /// Shared process pool for all web views to ensure consistent TLS/Network state
     public let processPool = WKProcessPool()
     
     private init() {
-        self.activeSpaceId = UUID() // Temporary init to allow self access
+        self.activeSpaceId = UUID()
         
         if let data = UserDefaults.standard.data(forKey: spacesKey),
            let decoded = try? JSONDecoder().decode([Space].self, from: data) {
@@ -32,39 +33,37 @@ public class SpaceManager: ObservableObject {
         let initialId = self.spaces.first?.id ?? UUID()
         self.activeSpaceId = initialId
         
-        // Synchronize managers
         HistoryManager.shared.setSpace(initialId)
         BookmarkManager.shared.setSpace(initialId)
+        
+        self.isLocked = !UserDefaults.standard.bool(forKey: hasInitializedKey)
     }
     
     public var activeSpace: Space {
         spaces.first { $0.id == activeSpaceId } ?? spaces.first ?? Space(name: "General", icon: "square.grid.2x2")
     }
     
-    public func websiteDataStore(for space: Space) -> WKWebsiteDataStore {
+    public func cookieDataStore(for space: Space) -> WKWebsiteDataStore {
         if space.isPrivate {
             return .nonPersistent()
         }
         
-        if let existing = dataStores[space.id] {
+        if let existing = cookieStores[space.id] {
             return existing
         }
         
         let store: WKWebsiteDataStore
-        if let identifier = space.dataStoreIdentifier {
+        if space.name == "General" {
+            store = .default()
+        } else if let identifier = space.dataStoreIdentifier {
             store = WKWebsiteDataStore(forIdentifier: identifier)
         } else {
-            // If it's a persistent space without an identifier (like General), use default
-            if space.name == "General" {
-                store = .default()
-            } else {
-                let newIdentifier = UUID()
-                store = WKWebsiteDataStore(forIdentifier: newIdentifier)
-                updateSpaceIdentifier(spaceId: space.id, identifier: newIdentifier)
-            }
+            let newIdentifier = UUID()
+            store = WKWebsiteDataStore(forIdentifier: newIdentifier)
+            updateSpaceIdentifier(spaceId: space.id, identifier: newIdentifier)
         }
         
-        dataStores[space.id] = store
+        cookieStores[space.id] = store
         return store
     }
     
@@ -75,6 +74,47 @@ public class SpaceManager: ObservableObject {
             spaces[index] = updatedSpace
             saveSpaces()
         }
+    }
+    
+    public func initializeEncryption(with key: Data) {
+        CookiePersistenceManager.shared.setEncryptionKey(key)
+    }
+    
+    public func initializeEncryptionOnFirstLaunch() {
+        let hasInitialized = UserDefaults.standard.bool(forKey: hasInitializedKey)
+        
+        if hasInitialized {
+            do {
+                let key = try KeychainManager.shared.retrieveKey()
+                CookiePersistenceManager.shared.setEncryptionKey(key)
+            } catch {
+                print("Failed to retrieve encryption key: \(error)")
+            }
+        } else {
+            do {
+                let newKey = try KeychainManager.shared.generateAndStoreKey()
+                CookiePersistenceManager.shared.setEncryptionKey(newKey)
+                UserDefaults.standard.set(true, forKey: hasInitializedKey)
+            } catch {
+                print("Failed to generate encryption key: \(error)")
+            }
+        }
+    }
+    
+    public func unlock() {
+        isLocked = false
+    }
+    
+    public func lock() {
+        isLocked = true
+    }
+    
+    public func saveAllCookies() {
+        // No-op - default storage auto-saves
+    }
+    
+    public func hasEncryption() -> Bool {
+        return CookiePersistenceManager.shared.hasEncryptionKey()
     }
     
     private func saveSpaces() {
@@ -90,10 +130,8 @@ public class SpaceManager: ObservableObject {
     }
     
     public func resetToDefaultSpaces() {
-        // Clear all data stores first
-        dataStores.removeAll()
+        cookieStores.removeAll()
         
-        // Reset to default spaces
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
             
@@ -106,7 +144,6 @@ public class SpaceManager: ObservableObject {
             
             self.saveSpaces()
             
-            // Set active space to first non-private space
             if let defaultSpace = self.spaces.first(where: { !$0.isPrivate }) {
                 self.activeSpaceId = defaultSpace.id
                 HistoryManager.shared.setSpace(defaultSpace.id)
