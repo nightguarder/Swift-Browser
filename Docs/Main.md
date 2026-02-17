@@ -20,6 +20,8 @@ The documentation is versioned to track the evolution of the browser's features 
 - [**v0.8** - Adress Suggestion bar bugs\*\*](v0.8/ReleaseNotes.md): Polish new features, improve code, shortcuts control, Adress bar fix
 - [**v1.0 - Major Feature Release**](v1.0/ReleaseNotes.md): Downloads support, functioning Web Inspector, new icon, enhanced content blocker, security audit, and code cleanup.
 - [**v1.1 - No-Signature Build & Cloudflare Fix**](v1.1/ReleaseNotes.md): Cloudflare "Are you a human?" loop fix, no-signature distribution, RAM comparison with Safari.
+- [**v1.2 - DuckPlayer**](v1.2%20-%20DuckPlayer/DuckPlayer_Implementation.md): YouTube background playback support via DuckPlayer.
+- [**v1.3 - Keyboard & Sidebar Drag**](v1.3%20-%20Keyboard%20&%20Sidebar%20Drag/Keyboard_Scrolling_Fix.md): Fixed keyboard scrolling delay, added tab drag and drop in sidebar.
 
 ## Philosophy
 
