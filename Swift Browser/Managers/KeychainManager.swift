@@ -44,7 +44,7 @@ public final class KeychainManager {
             kSecAttrService as String: service,
             kSecAttrAccount as String: account,
             kSecValueData as String: key,
-            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+            kSecAttrAccessible as String: kSecAttrAccessibleWhenUnlocked
         ]
         
         let status = SecItemAdd(query as CFDictionary, nil)
@@ -100,26 +100,20 @@ public final class KeychainManager {
 
 public enum KeychainError: Error, LocalizedError {
     case keyGenerationFailed
-    case accessControlCreationFailed
     case storeFailed(OSStatus)
     case retrieveFailed(OSStatus)
     case deleteFailed(OSStatus)
-    case biometricNotAvailable
     
     public var errorDescription: String? {
         switch self {
         case .keyGenerationFailed:
             return "Failed to generate encryption key"
-        case .accessControlCreationFailed:
-            return "Failed to create access control for keychain"
         case .storeFailed(let status):
             return "Failed to store key in keychain: \(status)"
         case .retrieveFailed(let status):
             return "Failed to retrieve key from keychain: \(status)"
         case .deleteFailed(let status):
             return "Failed to delete key from keychain: \(status)"
-        case .biometricNotAvailable:
-            return "Touch ID is not available on this device"
         }
     }
 }

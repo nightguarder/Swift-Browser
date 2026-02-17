@@ -14,14 +14,11 @@ struct Swift_BrowserApp: App {
     @AppStorage("darkModePreference") private var darkModePreference: DarkModeManager.DarkModePreference = .system
     @State private var showSplash = false
     @Environment(\.scenePhase) private var scenePhase
-    @StateObject private var spaceManager = SpaceManager.shared
     
     var body: some Scene {
         WindowGroup {
             ZStack {
-                if spaceManager.isLocked {
-                    LockedView()
-                } else if !hasLaunchedBefore {
+                if !hasLaunchedBefore {
                     WelcomeView(showSplash: $showSplash)
                 } else if showSplash {
                     SplashScreen()
@@ -38,9 +35,7 @@ struct Swift_BrowserApp: App {
             }
             .preferredColorScheme(darkModePreference == .dark ? .dark : (darkModePreference == .light ? .light : nil))
             .onAppear {
-                if !spaceManager.isLocked {
-                    SpaceManager.shared.initializeEncryptionOnFirstLaunch()
-                }
+                SpaceManager.shared.initializeEncryptionOnFirstLaunch()
             }
         }
         .commands {

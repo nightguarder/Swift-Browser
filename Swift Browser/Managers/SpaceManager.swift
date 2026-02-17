@@ -7,7 +7,6 @@ public class SpaceManager: ObservableObject {
     
     @Published public var spaces: [Space] = []
     @Published public var activeSpaceId: UUID
-    @Published public var isLocked: Bool = true
     
     private let spacesKey = "com.swiftbrowser.spaces"
     private let hasInitializedKey = "com.swiftbrowser.hasInitializedEncryption"
@@ -35,8 +34,6 @@ public class SpaceManager: ObservableObject {
         
         HistoryManager.shared.setSpace(initialId)
         BookmarkManager.shared.setSpace(initialId)
-        
-        self.isLocked = !UserDefaults.standard.bool(forKey: hasInitializedKey)
     }
     
     public var activeSpace: Space {
@@ -81,32 +78,33 @@ public class SpaceManager: ObservableObject {
     }
     
     public func initializeEncryptionOnFirstLaunch() {
-        let hasInitialized = UserDefaults.standard.bool(forKey: hasInitializedKey)
-        
-        if hasInitialized {
-            do {
-                let key = try KeychainManager.shared.retrieveKey()
-                CookiePersistenceManager.shared.setEncryptionKey(key)
-            } catch {
-                print("Failed to retrieve encryption key: \(error)")
+        do {
+            let key = try KeychainManager.shared.retrieveKey()
+            CookiePersistenceManager.shared.setEncryptionKey(key)
+            CookiePersistenceManager.shared.preloadAllCookies(for: spaces) {
+                print("Cookies preloaded successfully")
             }
-        } else {
+        } catch {
             do {
+                try KeychainManager.shared.deleteKey()
                 let newKey = try KeychainManager.shared.generateAndStoreKey()
                 CookiePersistenceManager.shared.setEncryptionKey(newKey)
                 UserDefaults.standard.set(true, forKey: hasInitializedKey)
             } catch {
-                print("Failed to generate encryption key: \(error)")
+                print("Failed to initialize encryption: \(error)")
             }
         }
     }
     
-    public func unlock() {
-        isLocked = false
-    }
-    
-    public func lock() {
-        isLocked = true
+    public func resetEncryptionKey() {
+        do {
+            try KeychainManager.shared.deleteKey()
+            UserDefaults.standard.set(false, forKey: hasInitializedKey)
+            try KeychainManager.shared.generateAndStoreKey()
+            UserDefaults.standard.set(true, forKey: hasInitializedKey)
+        } catch {
+            print("Failed to reset encryption key: \(error)")
+        }
     }
     
     public func saveAllCookies() {
