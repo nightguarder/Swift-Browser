@@ -202,7 +202,7 @@ public final class CookiePersistenceManager: ObservableObject {
                 return
             }
             
-            for space in spaces where !space.isPrivate {
+            for space in spaces where !space.isPrivate && !space.blockAllCookies {
                 let fileURL = self.cookieFileURL(for: space.id)
                 
                 guard self.fileManager.fileExists(atPath: fileURL.path) else {
@@ -228,6 +228,21 @@ public final class CookiePersistenceManager: ObservableObject {
             
             DispatchQueue.main.async {
                 completion()
+            }
+        }
+    }
+    
+    public func injectCookiesIntoDataStore(for space: Space, dataStore: WKWebsiteDataStore) {
+        guard !space.isPrivate && !space.blockAllCookies else { return }
+        
+        if let cookies = cookieCache[space.id], !cookies.isEmpty {
+            let group = DispatchGroup()
+            
+            for cookie in cookies {
+                group.enter()
+                dataStore.httpCookieStore.setCookie(cookie) {
+                    group.leave()
+                }
             }
         }
     }

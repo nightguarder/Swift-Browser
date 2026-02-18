@@ -151,7 +151,7 @@ struct BrowserView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if let currentTab = tabManager.currentTab, currentTab.url == "swiftbrowser://cookies" {
                 let space = SpaceManager.shared.spaces.first { $0.id == currentTab.spaceId } ?? SpaceManager.shared.activeSpace
-                CookiesView(dataStore: SpaceManager.shared.cookieDataStore(for: space))
+                CookiesView(dataStore: SpaceManager.shared.cookieDataStore(for: space), spaceId: space.id)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if let currentTab = tabManager.currentTab, currentTab.url == "swiftbrowser://shortcuts" {
                 ShortcutsView(tabManager: tabManager)

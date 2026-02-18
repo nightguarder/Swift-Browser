@@ -41,7 +41,7 @@ public class SpaceManager: ObservableObject {
     }
     
     public func cookieDataStore(for space: Space) -> WKWebsiteDataStore {
-        if space.isPrivate {
+        if space.isPrivate || space.blockAllCookies {
             return .nonPersistent()
         }
         
@@ -115,7 +115,7 @@ public class SpaceManager: ObservableObject {
         return CookiePersistenceManager.shared.hasEncryptionKey()
     }
     
-    private func saveSpaces() {
+    public func saveSpaces() {
         if let encoded = try? JSONEncoder().encode(spaces) {
             UserDefaults.standard.set(encoded, forKey: spacesKey)
         }
