@@ -81,14 +81,13 @@ public class SpaceManager: ObservableObject {
         do {
             let key = try KeychainManager.shared.retrieveKey()
             CookiePersistenceManager.shared.setEncryptionKey(key)
-            CookiePersistenceManager.shared.preloadAllCookies(for: spaces) {
-                print("Cookies preloaded successfully")
-            }
+            CookiePersistenceManager.shared.preloadAllCookies(for: spaces) { }
         } catch {
             do {
                 try KeychainManager.shared.deleteKey()
                 let newKey = try KeychainManager.shared.generateAndStoreKey()
                 CookiePersistenceManager.shared.setEncryptionKey(newKey)
+                CookiePersistenceManager.shared.preloadAllCookies(for: spaces) { }
                 UserDefaults.standard.set(true, forKey: hasInitializedKey)
             } catch {
                 print("Failed to initialize encryption: \(error)")
