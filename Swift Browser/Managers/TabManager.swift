@@ -306,8 +306,8 @@ public final class TabManager: ObservableObject {
         
         backgroundSpaceDiscardWorkItem = workItem
         
-        // Schedule after 10 seconds - gives user time to switch back if accidental
-        DispatchQueue.main.asyncAfter(deadline: .now() + 10.0, execute: workItem)
+        // Schedule after 5 minutes - gives user time to switch spaces without losing tab state
+        DispatchQueue.main.asyncAfter(deadline: .now() + 300.0, execute: workItem)
     }
 
     public func nextTab() {
@@ -561,6 +561,7 @@ public final class TabManager: ObservableObject {
         for tab in tabs {
             guard tab.id != currentID else { continue }
             guard tab.webView != nil else { continue }
+            guard tab.spaceId != SpaceManager.shared.activeSpaceId else { continue }
             guard !tab.url.isEmpty && !isInternalPage(tab.url) else { continue }
 
             let idle = now.timeIntervalSince(tab.lastUsedAt)
