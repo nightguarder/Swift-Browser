@@ -119,7 +119,7 @@ public final class TabManager: ObservableObject {
         let sid = spaceId ?? currentTab?.spaceId ?? SpaceManager.shared.activeSpaceId
         let space = SpaceManager.shared.spaces.first(where: { $0.id == sid }) ?? SpaceManager.shared.activeSpace
         
-        let webViewManager = WebViewManager(dataStore: configuration.websiteDataStore, isPrivateSpace: space.isPrivate, configuration: configuration)
+        let webViewManager = WebViewManager(dataStore: configuration.websiteDataStore, isPrivateSpace: space.isPrivate, spaceId: space.id, configuration: configuration)
         let newTab = BrowserTab(title: "New Tab", url: "", spaceId: sid, webView: webViewManager)
         
         setupManagerCallbacks(webViewManager, for: newTab)
@@ -343,9 +343,10 @@ public final class TabManager: ObservableObject {
     public func duplicate(_ tab: BrowserTab) {
         let space = SpaceManager.shared.spaces.first(where: { $0.id == tab.spaceId }) ?? SpaceManager.shared.activeSpace
         let dataStore = SpaceManager.shared.cookieDataStore(for: space)
-        let webView = WebViewManager(dataStore: dataStore, isPrivateSpace: space.isPrivate)
+        let webView = WebViewManager(dataStore: dataStore, isPrivateSpace: space.isPrivate, spaceId: space.id)
         let newTab = BrowserTab(title: tab.title, url: tab.url, spaceId: tab.spaceId, webView: webView)
         setupManagerCallbacks(webView, for: newTab)
+        CookiePersistenceManager.shared.injectCookiesIntoDataStore(for: space, dataStore: dataStore)
         
         // Load same content if available
         if !tab.url.isEmpty {
@@ -482,13 +483,14 @@ public final class TabManager: ObservableObject {
         if tab.webView == nil {
             let space = SpaceManager.shared.spaces.first(where: { $0.id == tab.spaceId }) ?? SpaceManager.shared.activeSpace
             let dataStore = SpaceManager.shared.cookieDataStore(for: space)
-            let manager = WebViewManager(dataStore: dataStore, isPrivateSpace: space.isPrivate)
+            let manager = WebViewManager(dataStore: dataStore, isPrivateSpace: space.isPrivate, spaceId: space.id)
             setupManagerCallbacks(manager, for: tab)
             tab.webView = manager
+            CookiePersistenceManager.shared.injectCookiesIntoDataStore(for: space, dataStore: dataStore)
             manager.load(tab.url)
         }
     }
-
+    
     @discardableResult
     private func ensureWebView(for tab: BrowserTab) -> WebViewManager {
         if let manager = tab.webView {
@@ -497,9 +499,10 @@ public final class TabManager: ObservableObject {
 
         let space = SpaceManager.shared.spaces.first(where: { $0.id == tab.spaceId }) ?? SpaceManager.shared.activeSpace
         let dataStore = SpaceManager.shared.cookieDataStore(for: space)
-        let manager = WebViewManager(dataStore: dataStore, isPrivateSpace: space.isPrivate)
+        let manager = WebViewManager(dataStore: dataStore, isPrivateSpace: space.isPrivate, spaceId: space.id)
         setupManagerCallbacks(manager, for: tab)
         tab.webView = manager
+        CookiePersistenceManager.shared.injectCookiesIntoDataStore(for: space, dataStore: dataStore)
         return manager
     }
 

@@ -37,13 +37,15 @@ public final class WebViewManager: NSObject, ObservableObject, WKNavigationDeleg
     private var isTornDown = false
     private let dataStore: WKWebsiteDataStore
     private let isPrivateSpace: Bool
+    private var spaceId: UUID?
 
     // Pre-compiled static scripts for performance
     private static let dntScriptSource = "Object.defineProperty(navigator,'doNotTrack',{get:()=>'1'});"
 
-    public init(dataStore: WKWebsiteDataStore = .default(), isPrivateSpace: Bool = false, configuration: WKWebViewConfiguration? = nil) {
+    public init(dataStore: WKWebsiteDataStore = .default(), isPrivateSpace: Bool = false, spaceId: UUID? = nil, configuration: WKWebViewConfiguration? = nil) {
         self.dataStore = dataStore
         self.isPrivateSpace = isPrivateSpace
+        self.spaceId = spaceId
         
         let config = configuration ?? WKWebViewConfiguration()
         config.websiteDataStore = dataStore
@@ -393,6 +395,15 @@ public final class WebViewManager: NSObject, ObservableObject, WKNavigationDeleg
         if let url = webView.url, !isPrivateSpace {
             let pageTitle = webView.title?.isEmpty == false ? webView.title! : extractTitleFromURL(url)
             HistoryManager.shared.addVisit(url: url, title: pageTitle)
+        }
+        
+        // Save cookies to disk for non-private spaces
+        if !isPrivateSpace, let sid = spaceId {
+            dataStore.httpCookieStore.getAllCookies { cookies in
+                if !cookies.isEmpty {
+                    CookiePersistenceManager.shared.saveCookies(cookies, for: sid)
+                }
+            }
         }
         
         // Re-apply dark mode if needed (sometimes reliable on finish)
