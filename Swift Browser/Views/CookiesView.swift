@@ -23,6 +23,12 @@ struct CookiesView: View {
     @State private var isLoading = false
     
     let dataStore: WKWebsiteDataStore
+    let spaceId: UUID
+    
+    init(dataStore: WKWebsiteDataStore, spaceId: UUID) {
+        self.dataStore = dataStore
+        self.spaceId = spaceId
+    }
     
     var filteredCookies: [CookieItem] {
         var items = cookies
@@ -272,6 +278,24 @@ struct CookiesView: View {
     
     private func loadCookies() {
         isLoading = true
+        
+        if let cachedCookies = CookiePersistenceManager.shared.getCachedCookies(for: spaceId), !cachedCookies.isEmpty {
+            let group = DispatchGroup()
+            for cookie in cachedCookies {
+                group.enter()
+                dataStore.httpCookieStore.setCookie(cookie) {
+                    group.leave()
+                }
+            }
+            group.notify(queue: .main) {
+                self.fetchCookiesFromDataStore()
+            }
+        } else {
+            fetchCookiesFromDataStore()
+        }
+    }
+    
+    private func fetchCookiesFromDataStore() {
         dataStore.httpCookieStore.getAllCookies { allCookies in
             DispatchQueue.main.async {
                 self.cookies = allCookies.map { cookie in

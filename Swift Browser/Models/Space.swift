@@ -8,19 +8,22 @@ public struct Space: Identifiable, Codable, Equatable {
     public var colorName: String
     public var isPrivate: Bool
     public var dataStoreIdentifier: UUID?
+    public var blockAllCookies: Bool
     
     public init(id: UUID = UUID(), 
                 name: String, 
                 icon: String, 
                 colorName: String = "AccentColor", 
                 isPrivate: Bool = false, 
-                dataStoreIdentifier: UUID? = nil) {
+                dataStoreIdentifier: UUID? = nil,
+                blockAllCookies: Bool? = nil) {
         self.id = id
         self.name = name
         self.icon = icon
         self.colorName = colorName
         self.isPrivate = isPrivate
         self.dataStoreIdentifier = dataStoreIdentifier
+        self.blockAllCookies = blockAllCookies ?? isPrivate
     }
     
     public var color: Color {

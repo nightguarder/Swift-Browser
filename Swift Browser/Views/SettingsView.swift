@@ -71,6 +71,17 @@ public struct SettingsView: View {
                         )
                     }
                     
+                    // Spaces Section
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Spaces")
+                            .font(.system(size: 16, weight: .bold))
+                            .padding(.bottom, 4)
+                        
+                        ForEach(SpaceManager.shared.spaces) { space in
+                            SpaceCookieSettingsRow(space: space)
+                        }
+                    }
+                    
                     // Duck Player Section
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Duck Player")
@@ -340,4 +351,70 @@ public struct SettingsView: View {
         "doNotTrackEnabled", "developerModeEnabled", "tabDiscardingEnabled",
         "duckPlayerMode", "duckPlayerAskOverlayHidden"
     ]
+}
+
+struct SpaceCookieSettingsRow: View {
+    let space: Space
+    @State private var blockAllCookies: Bool
+    
+    init(space: Space) {
+        self.space = space
+        self._blockAllCookies = State(initialValue: space.blockAllCookies)
+    }
+    
+    var body: some View {
+        HStack {
+            Image(systemName: space.icon)
+                .foregroundColor(Color(space.color))
+                .font(.system(size: 16))
+                .frame(width: 24)
+            
+            VStack(alignment: .leading, spacing: 2) {
+                Text(space.name)
+                    .font(.system(size: 14, weight: .medium))
+                
+                if space.isPrivate {
+                    Text("Private space - cookies always blocked")
+                        .font(.system(size: 11))
+                        .foregroundColor(.secondary)
+                } else if blockAllCookies {
+                    Text("All cookies blocked")
+                        .font(.system(size: 11))
+                        .foregroundColor(.secondary)
+                } else {
+                    Text("Cookies allowed")
+                        .font(.system(size: 11))
+                        .foregroundColor(.secondary)
+                }
+            }
+            
+            Spacer()
+            
+            if space.isPrivate {
+                Image(systemName: "lock.fill")
+                    .foregroundColor(.secondary)
+                    .font(.system(size: 14))
+            } else {
+                Toggle("", isOn: $blockAllCookies)
+                    .toggleStyle(.switch)
+                    .labelsHidden()
+                    .onChange(of: blockAllCookies) { _, newValue in
+                        updateSpaceBlockCookies(newValue)
+                    }
+            }
+        }
+        .padding(12)
+        .background(Color.gray.opacity(0.05))
+        .cornerRadius(8)
+    }
+    
+    private func updateSpaceBlockCookies(_ blocked: Bool) {
+        var updatedSpace = space
+        updatedSpace.blockAllCookies = blocked
+        
+        if let index = SpaceManager.shared.spaces.firstIndex(where: { $0.id == space.id }) {
+            SpaceManager.shared.spaces[index] = updatedSpace
+            SpaceManager.shared.saveSpaces()
+        }
+    }
 }

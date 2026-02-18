@@ -22,6 +22,7 @@ The documentation is versioned to track the evolution of the browser's features 
 - [**v1.1 - No-Signature Build & Cloudflare Fix**](v1.1/ReleaseNotes.md): Cloudflare "Are you a human?" loop fix, no-signature distribution, RAM comparison with Safari.
 - [**v1.2 - DuckPlayer**](v1.2%20-%20DuckPlayer/DuckPlayer_Implementation.md): YouTube background playback support via DuckPlayer.
 - [**v1.3 - Keyboard & Sidebar Drag**](v1.3%20-%20Keyboard%20&%20Sidebar%20Drag/Keyboard_Scrolling_Fix.md): Fixed keyboard scrolling delay, added tab drag and drop in sidebar.
+- [**v1.4 - Cookies Security**](v1.4%20-%20Cookies%20Security/Cookies_Security.md): Secure cookie persistence with encryption, Keychain integration, Block All Cookies per space.
 
 ## Philosophy
 
