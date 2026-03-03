@@ -53,7 +53,7 @@ final class ContentBlockerConverter {
         }
         
         do {
-            let jsonData = try JSONSerialization.data(withJSONObject: rules, options: [.prettyPrinted, .sortedKeys])
+            let jsonData = try JSONSerialization.data(withJSONObject: rules, options: [])
             let json = String(data: jsonData, encoding: .utf8) ?? "[]"
             return ConversionResult(json: json, ruleCount: rules.count, errors: errors)
         } catch {

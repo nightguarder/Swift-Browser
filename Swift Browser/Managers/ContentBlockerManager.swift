@@ -80,6 +80,12 @@ public final class ContentBlockerManager: ObservableObject {
         isEnabled = enabled
     }
     
+    public func reloadRules() {
+        Task {
+            await compileRules()
+        }
+    }
+    
     private func loadCompiledRules() {
         Task {
             await compileRules()
