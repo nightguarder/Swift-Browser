@@ -35,6 +35,16 @@ struct FilterList: Identifiable, Codable, Equatable {
     
     static let defaultLists: [FilterList] = [
         FilterList(
+            id: "easylist",
+            name: "EasyList",
+            description: "Primary ad blocking filter list",
+            sourceURL: URL(string: "https://raw.githubusercontent.com/easylist/easylist/master/easylist/easylist.txt")!,
+            priority: .critical,
+            isEnabled: true,
+            lastUpdated: nil,
+            ruleCount: nil
+        ),
+        FilterList(
             id: "nordic-filters",
             name: "Nordic Filters",
             description: "Comprehensive ad and tracker blocking",
