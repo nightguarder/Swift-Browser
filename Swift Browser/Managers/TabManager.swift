@@ -159,13 +159,25 @@ public final class TabManager: ObservableObject {
 
         var nextTab: BrowserTab?
         if wasCurrent {
+            let closingSpaceId = tab.spaceId
+            
+            // First try: previousTabId (if still valid)
             if let prevId = previousTabId, let prevTab = tabs.first(where: { $0.id == prevId }), prevTab.id != closingId {
                 nextTab = prevTab
             } else if let idx = tabs.firstIndex(where: { $0.id == closingId }) {
+                // Second try: adjacent tab in array
                 if idx > 0 {
                     nextTab = tabs[idx - 1]
                 } else if idx + 1 < tabs.count {
                     nextTab = tabs[idx + 1]
+                }
+            }
+            
+            // Third try: any remaining tab in the SAME space
+            if nextTab == nil || nextTab?.spaceId != closingSpaceId {
+                let sameSpaceTab = tabs.first(where: { $0.spaceId == closingSpaceId && $0.id != closingId })
+                if sameSpaceTab != nil {
+                    nextTab = sameSpaceTab
                 }
             }
             
@@ -179,8 +191,14 @@ public final class TabManager: ObservableObject {
             tabs.removeAll { $0.id == closingId }
 
             if wasCurrent {
-                currentTab = nextTab
-                addressBarText = nextTab?.url ?? ""
+                // Use switchToTab to properly handle space switching if needed
+                if let next = nextTab {
+                    switchToTab(next)
+                } else {
+                    // No tabs left - create a new tab in current space
+                    currentTab = nil
+                    addressBarText = ""
+                }
                 previousTabId = nil
             }
         }
@@ -213,6 +231,10 @@ public final class TabManager: ObservableObject {
     public func switchToTab(_ tab: BrowserTab) {
         // FIX: Switch to the tab's space first if it's in a different space
         if tab.spaceId != SpaceManager.shared.activeSpaceId {
+            // Track previous tab before switching spaces
+            if let current = currentTab, current.id != tab.id {
+                previousTabId = current.id
+            }
             switchSpace(to: tab.spaceId)
             // After switching space, switchToTab will be called again with the last used tab
             // We need to specifically select this tab instead

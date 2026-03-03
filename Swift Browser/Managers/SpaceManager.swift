@@ -50,9 +50,7 @@ public class SpaceManager: ObservableObject {
         }
         
         let store: WKWebsiteDataStore
-        if space.name == "General" {
-            store = .default()
-        } else if let identifier = space.dataStoreIdentifier {
+        if let identifier = space.dataStoreIdentifier {
             store = WKWebsiteDataStore(forIdentifier: identifier)
         } else {
             let newIdentifier = UUID()
@@ -97,6 +95,9 @@ public class SpaceManager: ObservableObject {
     
     public func resetEncryptionKey() {
         do {
+            // Delete all encrypted cookie files first
+            CookiePersistenceManager.shared.deleteAllCookies()
+            
             try KeychainManager.shared.deleteKey()
             UserDefaults.standard.set(false, forKey: hasInitializedKey)
             try KeychainManager.shared.generateAndStoreKey()

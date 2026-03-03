@@ -144,7 +144,8 @@ struct BrowserView: View {
                 SettingsView(tabManager: tabManager)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if let currentTab = tabManager.currentTab, currentTab.url == "swiftbrowser://history" {
-                HistoryView(tabManager: tabManager)
+                let space = SpaceManager.shared.spaces.first { $0.id == currentTab.spaceId } ?? SpaceManager.shared.activeSpace
+                HistoryView(tabManager: tabManager, spaceId: space.id)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if let currentTab = tabManager.currentTab, currentTab.url == "swiftbrowser://bookmarks" {
                 BookmarksView(tabManager: tabManager)
@@ -228,6 +229,11 @@ struct BrowserView: View {
         
         // Setup local monitor for key events when suggestions are showing
         keyEventMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            // Skip if tab search overlay is visible (it has its own keyboard handling)
+            if self.isTabSearchVisible {
+                return event
+            }
+            
             // Only consume events if the address bar is focused AND the window is key
             guard self.isAddressBarFocused,
                   let window = NSApp.keyWindow,
@@ -242,20 +248,20 @@ struct BrowserView: View {
             
             switch event.keyCode {
             case 125: // Down arrow
-                // Only consume if there are suggestions and we're navigating them
-                if hasSuggestions && self.selectedSuggestionIndex >= 0 {
+                // Consume if there are suggestions - start or continue navigation
+                if hasSuggestions {
                     self.handleSuggestionNavigation(direction: .down)
                     return nil // Consume event
                 }
-                // If no suggestions or not navigating, pass to webview
+                // If no suggestions, pass to webview for scrolling
                 return event
             case 126: // Up arrow
-                // Only consume if there are suggestions and we're navigating them
-                if hasSuggestions && self.selectedSuggestionIndex >= 0 {
+                // Consume if there are suggestions - start or continue navigation
+                if hasSuggestions {
                     self.handleSuggestionNavigation(direction: .up)
                     return nil // Consume event
                 }
-                // If no suggestions or not navigating, pass to webview
+                // If no suggestions, pass to webview for scrolling
                 return event
             case 36: // Return
                 self.handleSuggestionSelection()

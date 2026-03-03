@@ -3,6 +3,7 @@ import SwiftUI
 struct HistoryView: View {
     @StateObject private var historyManager = HistoryManager.shared
     @ObservedObject var tabManager: TabManager
+    let spaceId: UUID
     @State private var searchText = ""
     @State private var selectedItemID: UUID?
     @FocusState private var isSearchFocused: Bool
@@ -12,6 +13,12 @@ struct HistoryView: View {
     @State private var addressBarWidth: CGFloat = 320
     @State private var showingDeletePeriodDialog = false
     @State private var periodToDelete: TimePeriod?
+    
+    init(tabManager: TabManager, spaceId: UUID) {
+        self.tabManager = tabManager
+        self.spaceId = spaceId
+        HistoryManager.shared.setSpace(spaceId)
+    }
     
     struct HistorySuggestion: Identifiable {
         let id = UUID()
