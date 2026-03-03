@@ -67,6 +67,8 @@ struct TopToolbar: View {
                         .focused($isAddressBarFocused)
                         .disableAutocorrection(true)
                         .font(AppFont.searchField)
+                        .onKeyPress(.upArrow) { .handled }
+                        .onKeyPress(.downArrow) { .handled }
 
                     KeyboardShortcutHint("⌘L")
                         .padding(.trailing, 4)
