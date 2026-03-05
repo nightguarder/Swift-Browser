@@ -194,6 +194,32 @@ When implementing keyboard handling, use this priority:
 
 ---
 
+## Web Inspector State Preservation
+
+**Problem:** When switching between tabs in the same space, the Web Inspector would go white/blank and require re-opening.
+
+**Root Cause:** WebKit automatically closes the inspector when the WebView is removed from the view hierarchy. Previously, only the current tab's WebView was rendered, so switching tabs would remove the old WebView and close the inspector.
+
+**Solution:** Render WebViews for all tabs in the current space, but hide non-active ones with `opacity(0)` and `allowsHitTesting(false)`. This keeps the WebView in the view hierarchy so WebKit doesn't close the inspector.
+
+```swift
+// Only render tabs in current space to minimize memory
+let currentSpaceId = SpaceManager.shared.activeSpaceId
+let spaceTabs = tabManager.tabs.filter { $0.spaceId == currentSpaceId }
+
+ForEach(spaceTabs) { tab in
+    WebViewContainer(webView: webViewManager.webView)
+        .opacity(tab.id == tabManager.currentTab?.id ? 1 : 0)
+        .allowsHitTesting(tab.id == tabManager.currentTab?.id)
+}
+```
+
+**Memory Optimization:** Only tabs in the active space are rendered. Tabs in other spaces are discarded as before (after 10 second delay).
+
+**Trade-off:** Higher memory usage when multiple tabs are open in the same space. The tradeoff is necessary for Web Inspector functionality.
+
+---
+
 ## Related Documentation
 
 - [v1.3 - Keyboard & Sidebar Drag](./v1.3%20-%20Keyboard%20%26%20Sidebar%20Drag/Keyboard_Scrolling_Fix.md) - Original scroll coalescer implementation

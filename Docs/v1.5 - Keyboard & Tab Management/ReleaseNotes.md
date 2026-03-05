@@ -19,7 +19,7 @@
 ### Tab Management
 - **Wrong Space Tab**: Fixed issue where closing a tab in Private space would show a tab from General/School space
 - **Recent Tab Tracking**: Fixed issue where closing a tab would not return to the most recently used tab
-- **Web Inspector**: Fixed Web Inspector going white/crashing when switching tabs. Now keeps top 2 most recently used tabs alive per space.
+- **Web Inspector**: Fixed Web Inspector going white when switching tabs. Now renders WebViews for tabs in the current space (not all tabs) to preserve inspector state while minimizing memory usage.
 
 ### Security & Privacy
 - **History Space Isolation**: Fixed history showing from wrong space when viewing history page
