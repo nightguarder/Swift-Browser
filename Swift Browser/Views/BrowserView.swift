@@ -35,7 +35,7 @@ struct BrowserView: View {
     // Address Bar Suggestions State
     @State private var selectedSuggestionIndex: Int = -1
     @State private var keyEventMonitor: Any?
-
+    
     init() {}
 
     public var body: some View {
@@ -436,18 +436,28 @@ struct BrowserView: View {
 
     // MARK: - Content Area
     private var contentArea: some View {
-        Group {
-            if let currentTab = tabManager.currentTab, let webView = currentTab.webView?.webView {
-                WebViewContainer(webView: webView)
-                    .id(currentTab.id)
-                    .onTapGesture {
-                        // Defocus address bar when clicking on webview
-                        if isAddressBarFocused {
-                            isAddressBarFocused = false
-                            NSApp.keyWindow?.makeFirstResponder(nil)
+        ZStack {
+            // Render WebViews for tabs in CURRENT SPACE only
+            // This preserves Web Inspector while minimizing memory usage
+            let currentSpaceId = SpaceManager.shared.activeSpaceId
+            let spaceTabs = tabManager.tabs.filter { $0.spaceId == currentSpaceId }
+            
+            ForEach(spaceTabs) { tab in
+                if let webViewManager = tab.webView {
+                    WebViewContainer(webView: webViewManager.webView)
+                        .id(tab.id)
+                        .opacity(tab.id == tabManager.currentTab?.id ? 1 : 0)
+                        .allowsHitTesting(tab.id == tabManager.currentTab?.id)
+                        .onTapGesture {
+                            if isAddressBarFocused {
+                                isAddressBarFocused = false
+                                NSApp.keyWindow?.makeFirstResponder(nil)
+                            }
                         }
-                    }
-            } else {
+                }
+            }
+            
+            if tabManager.currentTab?.webView == nil {
                 ProgressView()
                     .progressViewStyle(.circular)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -551,8 +561,6 @@ struct BrowserView: View {
             }
             .keyboardShortcut("i", modifiers: [.command, .option])
         }
-        .opacity(0)
-        .allowsHitTesting(false)
     }
 }
 

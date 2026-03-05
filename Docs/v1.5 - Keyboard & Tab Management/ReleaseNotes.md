@@ -19,6 +19,16 @@
 ### Tab Management
 - **Wrong Space Tab**: Fixed issue where closing a tab in Private space would show a tab from General/School space
 - **Recent Tab Tracking**: Fixed issue where closing a tab would not return to the most recently used tab
+- **Web Inspector**: Fixed Web Inspector going white/crashing when switching tabs. Now keeps top 2 most recently used tabs alive per space.
+
+### Security & Privacy
+- **History Space Isolation**: Fixed history showing from wrong space when viewing history page
+- **Cookie Isolation**: Fixed General space using unencrypted cookie storage. All spaces now use unique identifiers.
+- **Key Reset Cleanup**: Old encrypted cookie files are now deleted when encryption key is reset
+
+### Content Blocker
+- **JSON Optimization**: Removed pretty-printing to reduce rule list size (~30% smaller)
+- **EasyList Added**: Added popular EasyList as default filter
 
 ## Technical Changes
 
@@ -27,6 +37,10 @@
 2. `Swift Browser/Views/TopToolbar.swift`
 3. `Swift Browser/Managers/TabManager.swift`
 4. `Swift Browser/Views/WebViewContainer.swift` - Removed scroll coalescer
+5. `Swift Browser/Views/HistoryView.swift` - Added space parameter
+6. `Swift Browser/Managers/SpaceManager.swift` - Cookie isolation fix
+7. `Swift Browser/Managers/ContentBlockerConverter.swift` - JSON optimization
+8. `Swift Browser/Models/FilterList.swift` - Added EasyList
 
 ### Breaking Changes
 - **Scroll Coalescer Removed**: The scroll coalescer optimization (d452b956) has been removed to fix web form input issues. Web page scrolling now works through native WKWebView handling.

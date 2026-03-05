@@ -299,9 +299,12 @@ public final class TabManager: ObservableObject {
             // Get current active space to make sure we don't discard it
             let activeSpaceId = SpaceManager.shared.activeSpaceId
             
-            // Find the most recently used tab in the previous space to keep it alive
-            let previousSpaceTabs = self.tabs.filter { $0.spaceId == previousSpaceId }
-            let lastUsedInPreviousSpace = previousSpaceTabs.max(by: { $0.lastUsedAt < $1.lastUsedAt })
+            // Find the most recently used tabs in the previous space to keep alive
+            // Keep top 2 to preserve Web Inspector state
+            let previousSpaceTabs = self.tabs
+                .filter { $0.spaceId == previousSpaceId }
+                .sorted { $0.lastUsedAt > $1.lastUsedAt }
+            let tabsToKeep = Set(previousSpaceTabs.prefix(2).map { $0.id })
             
             var discardedCount = 0
             for tab in self.tabs {
@@ -316,9 +319,9 @@ public final class TabManager: ObservableObject {
                 // Don't discard if it's the current tab
                 guard tab.id != self.currentTab?.id else { continue }
                 
-                // HARDENING: Don't discard the most recently used tab in that space.
+                // Don't discard the top 2 most recently used tabs in that space.
                 // This preserves the Web Inspector and page state if the user switches back soon.
-                guard tab.id != lastUsedInPreviousSpace?.id else { continue }
+                guard tabsToKeep.contains(tab.id) else { continue }
                 
                 self.discardTabWebView(tab)
                 discardedCount += 1
