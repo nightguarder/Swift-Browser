@@ -54,7 +54,7 @@ struct BookmarksView: View {
                     
                     Spacer()
                     
-                    KeyboardShortcutHint("⌘B")
+                    KeyboardShortcutHint("⌘B", tooltip: "Toggle Bookmarks")
                 }
                 .padding(.horizontal, 12)
                 .padding(.top, 20)

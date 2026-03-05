@@ -44,7 +44,7 @@ struct ShortcutsView: View {
 
         // Tools
         ShortcutItem(title: "Toggle Find in Page", keys: "⌘ F", category: "Tools"),
-        ShortcutItem(title: "Toggle Tab Search", keys: "⌘ K", category: "Tools"),
+        ShortcutItem(title: "Toggle Tab Search / Navigator", keys: "⌘ K", category: "Tools"),
         ShortcutItem(title: "Toggle Downloads", keys: "⌘ J", category: "Tools"),
         ShortcutItem(title: "Copy Page URL", keys: "⌘ ⌥ C", category: "Tools"),
         ShortcutItem(title: "Web Inspector", keys: "F12 / ⌘ ⌥ I", category: "Tools"),

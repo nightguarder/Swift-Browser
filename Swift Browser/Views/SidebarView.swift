@@ -152,7 +152,7 @@ public struct SidebarView: View {
                              
                              Spacer()
                              
-                             KeyboardShortcutHint("⌘T")
+                             KeyboardShortcutHint("⌘T", tooltip: "New Tab")
                          }
                      }
                       .frame(maxWidth: .infinity, alignment: isSidebarHovered ? .leading : .center)
@@ -269,10 +269,19 @@ struct DraggableTabRow: View {
     
     var body: some View {
         HStack(spacing: AppSpacing.sidebarItemSpacing) {
-            FaviconView(urlString: tab.url, title: tab.title)
-                .frame(width: AppSpacing.smallIconSize, height: AppSpacing.smallIconSize)
-                .padding(.leading, 2)
-                .padding(.trailing, 2)
+            ZStack(alignment: .bottomTrailing) {
+                FaviconView(urlString: tab.url, title: tab.title)
+                    .frame(width: AppSpacing.smallIconSize, height: AppSpacing.smallIconSize)
+                
+                if isCurrent {
+                    Circle()
+                        .fill(Color.accentColor)
+                        .frame(width: 6, height: 6)
+                        .offset(x: 2, y: 2)
+                }
+            }
+            .padding(.leading, 2)
+            .padding(.trailing, 2)
             
             if isSidebarHovered {
                 Text(tab.title.isEmpty ? "New Tab" : tab.title)
@@ -282,7 +291,17 @@ struct DraggableTabRow: View {
                 
                 Spacer()
                 
-                if isCurrent || isHovered {
+                if isCurrent {
+                    Text("Current")
+                        .font(.system(size: 9, weight: .bold))
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 2)
+                        .background(Color.accentColor.opacity(0.15))
+                        .cornerRadius(4)
+                        .foregroundColor(.accentColor)
+                }
+                
+                if isHovered {
                     Button(action: onClose) {
                         Image(systemName: "xmark")
                             .font(AppFont.keyboardShortcut)
@@ -307,12 +326,8 @@ struct DraggableTabRow: View {
         .onHover { hovering in
             isHovered = hovering
             hoveredTabId = hovering ? tab.id : nil
-            if hovering {
-                NSCursor.pointingHand.push()
-            } else {
-                NSCursor.pop()
-            }
         }
+        .buttonStyle(.plain)
         .contextMenu {
             Button("Duplicate Tab", action: onDuplicate)
             Button("Close Tab", action: onClose)
@@ -397,12 +412,8 @@ public struct SidebarTabButton: View {
         .onTapGesture(perform: onSelect)
         .onHover { hovering in
             hoveredTabId = hovering ? tab.id : nil
-            if hovering {
-                NSCursor.pointingHand.push()
-            } else {
-                NSCursor.pop()
-            }
         }
+        .buttonStyle(.plain)
         .contextMenu {
             Button("Duplicate Tab", action: onDuplicate)
             Button("Close Tab", action: onClose)

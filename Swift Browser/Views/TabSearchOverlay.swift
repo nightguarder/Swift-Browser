@@ -168,13 +168,7 @@ public struct TabSearchOverlay: View {
                 .buttonStyle(.plain)
             }
             
-            Text("⌘K")
-                .font(.system(size: 11, weight: .medium))
-                .foregroundColor(.secondary)
-                .padding(.horizontal, 6)
-                .padding(.vertical, 2)
-                .background(Color.secondary.opacity(0.15))
-                .cornerRadius(4)
+            KeyboardShortcutHint("⌘K", tooltip: "Close")
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 14)

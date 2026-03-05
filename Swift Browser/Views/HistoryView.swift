@@ -134,7 +134,7 @@ struct HistoryView: View {
                     
                     Spacer()
                     
-                    KeyboardShortcutHint("⌘Y")
+                    KeyboardShortcutHint("⌘Y", tooltip: "Open History")
                 }
                 .padding(.horizontal, 12)
                 .padding(.top, 20)

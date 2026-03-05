@@ -70,7 +70,7 @@ struct TopToolbar: View {
                         .onKeyPress(.upArrow) { .handled }
                         .onKeyPress(.downArrow) { .handled }
 
-                    KeyboardShortcutHint("⌘L")
+                    KeyboardShortcutHint("⌘L", tooltip: "Focus Address Bar")
                         .padding(.trailing, 4)
 
                     // Privacy Shield Indicator
