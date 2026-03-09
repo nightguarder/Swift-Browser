@@ -67,10 +67,8 @@ struct TopToolbar: View {
                         .focused($isAddressBarFocused)
                         .disableAutocorrection(true)
                         .font(AppFont.searchField)
-                        .onKeyPress(.upArrow) { .handled }
-                        .onKeyPress(.downArrow) { .handled }
 
-                    KeyboardShortcutHint("⌘L", tooltip: "Focus Address Bar")
+                    KeyboardShortcutHint("⌘L")
                         .padding(.trailing, 4)
 
                     // Privacy Shield Indicator
@@ -81,7 +79,6 @@ struct TopToolbar: View {
                                 .font(AppFont.subtitle)
                         }
                         .buttonStyle(.plain)
-                        .help("Privacy Shield Active")
                     }
 
                     // Bookmark Button

@@ -32,7 +32,7 @@ public struct FindBarView: View {
                     return .handled
                 }
             
-            KeyboardShortcutHint("⌘F", tooltip: "Find in Page")
+            KeyboardShortcutHint("⌘F")
                 .padding(.trailing, 4)
             
             if manager.totalResults > 0 {

@@ -30,7 +30,6 @@ struct DownloadsButton: View {
             }
         }
         .buttonStyle(.plain)
-        .help("Downloads")
         .popover(isPresented: $isShowingPopover) {
             DownloadsPopover(downloadManager: downloadManager, isPresented: $isShowingPopover)
         }

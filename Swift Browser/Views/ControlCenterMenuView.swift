@@ -120,5 +120,6 @@ public struct ControlCenterMenuButton: View {
             isHovered = hovering
         }
         .scaleEffect(isHovered ? 1.05 : 1.0)
+        .animation(.easeInOut(duration: 0.15), value: isHovered)
     }
 }

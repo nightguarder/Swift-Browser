@@ -9,32 +9,19 @@ import SwiftUI
 /// This view is intended as a lightweight, reusable hint in toolbars, menus, or help overlays.
 public struct KeyboardShortcutHint: View {
     let keys: String
-    let tooltip: String?
     
-    public init(_ keys: String, tooltip: String? = nil) {
+    public init(_ keys: String) {
         self.keys = keys
-        self.tooltip = tooltip
     }
 
     public var body: some View {
-        if let tooltip = tooltip {
-            Text(keys)
-                .font(.system(size: 10, weight: .medium, design: .rounded))
-                .foregroundColor(.secondary)
-                .padding(.horizontal, 5)
-                .padding(.vertical, 2)
-                .background(Color.secondary.opacity(0.12))
-                .cornerRadius(4)
-                .help(tooltip)
-        } else {
-            Text(keys)
-                .font(.system(size: 10, weight: .medium, design: .rounded))
-                .foregroundColor(.secondary)
-                .padding(.horizontal, 5)
-                .padding(.vertical, 2)
-                .background(Color.secondary.opacity(0.12))
-                .cornerRadius(4)
-        }
+        Text(keys)
+            .font(.system(size: 10, weight: .medium, design: .rounded))
+            .foregroundColor(.secondary)
+            .padding(.horizontal, 5)
+            .padding(.vertical, 2)
+            .background(Color.secondary.opacity(0.12))
+            .cornerRadius(4)
     }
 }
 
