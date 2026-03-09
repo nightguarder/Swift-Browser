@@ -92,10 +92,10 @@ public final class TabManager: ObservableObject {
             .store(in: &cancellables)
     }
 
-    public func addTab(url: String = "", in spaceId: UUID? = nil) {
+    public func addTab(url: String = "", in spaceId: UUID? = nil, isPinned: Bool = false) {
         let sid = spaceId ?? SpaceManager.shared.activeSpaceId
         let title = url.isEmpty ? "Home" : (url.hasPrefix("swiftbrowser://") ? url.replacingOccurrences(of: "swiftbrowser://", with: "").capitalized : "Loading...")
-        let newTab = BrowserTab(title: title, url: url, spaceId: sid, webView: nil)
+        let newTab = BrowserTab(title: title, url: url, spaceId: sid, webView: nil, isPinned: isPinned)
         
         // Track previous tab before switching
         if let current = currentTab {
@@ -133,6 +133,9 @@ public final class TabManager: ObservableObject {
     }
 
     public func closeTab(_ tab: BrowserTab) {
+        // Don't close pinned tabs
+        if tab.isPinned { return }
+        
         let closingId = tab.id
         let wasCurrent = currentTab?.id == closingId
 
@@ -278,7 +281,8 @@ public final class TabManager: ObservableObject {
         if let lastUsed = spaceTabs.max(by: { $0.lastUsedAt < $1.lastUsedAt }) {
             switchToTab(lastUsed)
         } else {
-            addTab(in: spaceId)
+            // Create pinned Home tab for new spaces
+            addTab(in: spaceId, isPinned: true)
         }
         
         // Background space discarding: Schedule discarding of previous space WebViews after delay
@@ -336,15 +340,21 @@ public final class TabManager: ObservableObject {
     }
 
     public func nextTab() {
-        guard let current = currentTab, let index = tabs.firstIndex(where: { $0.id == current.id }) else { return }
-        let nextIndex = (index + 1) % tabs.count
-        switchToTab(tabs[nextIndex])
+        let currentSpaceId = SpaceManager.shared.activeSpaceId
+        let spaceTabs = tabs.filter { $0.spaceId == currentSpaceId }
+        guard let current = currentTab,
+              let currentIndex = spaceTabs.firstIndex(where: { $0.id == current.id }) else { return }
+        let nextIndex = (currentIndex + 1) % spaceTabs.count
+        switchToTab(spaceTabs[nextIndex])
     }
-
+    
     public func previousTab() {
-        guard let current = currentTab, let index = tabs.firstIndex(where: { $0.id == current.id }) else { return }
-        let prevIndex = (index - 1 + tabs.count) % tabs.count
-        switchToTab(tabs[prevIndex])
+        let currentSpaceId = SpaceManager.shared.activeSpaceId
+        let spaceTabs = tabs.filter { $0.spaceId == currentSpaceId }
+        guard let current = currentTab,
+              let currentIndex = spaceTabs.firstIndex(where: { $0.id == current.id }) else { return }
+        let prevIndex = (currentIndex - 1 + spaceTabs.count) % spaceTabs.count
+        switchToTab(spaceTabs[prevIndex])
     }
 
     public func switchToIndex(_ index: Int) {
@@ -392,7 +402,12 @@ public final class TabManager: ObservableObject {
         guard let current = currentTab else { return }
         duplicate(current)
     }
-
+    
+    public func togglePinCurrentTab() {
+        guard let current = currentTab else { return }
+        current.isPinned.toggle()
+    }
+    
     /// Reopens the most recently closed tab
     public func reopenClosedTab() {
         guard !recentlyClosedTabs.isEmpty else { return }
@@ -708,7 +723,8 @@ public final class TabManager: ObservableObject {
                 url: persistedTab.url,
                 spaceId: persistedTab.spaceId,
                 webView: nil,
-                lastUsedAt: persistedTab.lastUsedAt
+                lastUsedAt: persistedTab.lastUsedAt,
+                isPinned: persistedTab.isPinned
             )
             restoredTabs.append(tab)
         }

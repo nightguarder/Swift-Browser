@@ -220,6 +220,57 @@ ForEach(spaceTabs) { tab in
 
 ---
 
+## Unified Tab Search & Navigator (Cmd+K)
+
+**Feature Added:** March 2026
+
+The tab search and tab navigation have been combined into a single, unified interface accessible via **Cmd+K**.
+
+### Features
+
+1. **Search/Filter Tabs** - Type to filter tabs by title or URL
+2. **Navigate with Arrow Keys** - Use Up/Down arrows to navigate the filtered list
+3. **Select with Enter** - Press Enter to switch to the highlighted tab
+4. **Close with Escape** - Press Escape to close the overlay
+
+### Implementation
+
+- **Single Shortcut:** Cmd+K opens the unified tab switcher (replaces separate Cmd+K for search and Cmd+→ for navigation)
+- **Keyboard Monitor:** TabSearchOverlay has its own keyboard event monitor that properly handles:
+  - Arrow keys for navigation
+  - Enter for selection
+  - Escape for closing
+- **Priority:** Tab search overlay has highest priority in the keyboard handling chain
+
+### Keyboard Shortcuts Displayed
+
+The overlay displays keyboard hints:
+- **↑↓** - Navigate
+- **↵** - Select  
+- **Esc** - Close
+
+### Code Structure
+
+```swift
+// In TabSearchOverlay.swift
+private func setupKeyboardMonitor() {
+    keyboardMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+        // Handle Escape - always consume
+        if event.keyCode == 53 {
+            isTabSearchVisible = false
+            return nil
+        }
+        
+        // Handle arrow keys when text field is focused
+        guard isTextFieldFocused else { return event }
+        
+        // Handle navigation and selection...
+    }
+}
+```
+
+---
+
 ## Related Documentation
 
 - [v1.3 - Keyboard & Sidebar Drag](./v1.3%20-%20Keyboard%20%26%20Sidebar%20Drag/Keyboard_Scrolling_Fix.md) - Original scroll coalescer implementation

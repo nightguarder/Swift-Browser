@@ -33,7 +33,7 @@ public struct SettingsView: View {
                 
                 Spacer()
                 
-                KeyboardShortcutHint("⌘,", tooltip: "Open Settings")
+                KeyboardShortcutHint("⌘,")
                 
                 Button("Done") {
                     if let current = tabManager.currentTab, current.url == "swiftbrowser://settings" {

@@ -560,6 +560,40 @@ struct BrowserView: View {
                 #endif
             }
             .keyboardShortcut("i", modifiers: [.command, .option])
+            
+            // Space Navigation - Cmd+Left/Right to switch spaces
+            Button("") {
+                let spaces = SpaceManager.shared.spaces
+                guard let currentIndex = spaces.firstIndex(where: { $0.id == SpaceManager.shared.activeSpaceId }) else { return }
+                let previousIndex = (currentIndex - 1 + spaces.count) % spaces.count
+                tabManager.switchSpace(to: spaces[previousIndex].id)
+            }
+            .keyboardShortcut(.leftArrow, modifiers: .command)
+            
+            Button("") {
+                let spaces = SpaceManager.shared.spaces
+                guard let currentIndex = spaces.firstIndex(where: { $0.id == SpaceManager.shared.activeSpaceId }) else { return }
+                let nextIndex = (currentIndex + 1) % spaces.count
+                tabManager.switchSpace(to: spaces[nextIndex].id)
+            }
+            .keyboardShortcut(.rightArrow, modifiers: .command)
+            
+            // Tab Navigation - Cmd+Up/Down to switch tabs quickly
+            Button("") {
+                tabManager.previousTab()
+            }
+            .keyboardShortcut(.upArrow, modifiers: .command)
+            
+            Button("") {
+                tabManager.nextTab()
+            }
+            .keyboardShortcut(.downArrow, modifiers: .command)
+            
+            // Pin/Unpin Tab
+            Button("") {
+                tabManager.togglePinCurrentTab()
+            }
+            .keyboardShortcut("p", modifiers: .command)
         }
     }
 }

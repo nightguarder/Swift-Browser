@@ -127,6 +127,26 @@ public class SpaceManager: ObservableObject {
         BookmarkManager.shared.setSpace(spaceId)
     }
     
+    public func switchToNextSpace() {
+        guard !spaces.isEmpty else { return }
+        if let currentIndex = spaces.firstIndex(where: { $0.id == activeSpaceId }) {
+            let nextIndex = (currentIndex + 1) % spaces.count
+            switchSpace(to: spaces[nextIndex].id)
+        } else if let firstSpace = spaces.first {
+            switchSpace(to: firstSpace.id)
+        }
+    }
+    
+    public func switchToPreviousSpace() {
+        guard !spaces.isEmpty else { return }
+        if let currentIndex = spaces.firstIndex(where: { $0.id == activeSpaceId }) {
+            let previousIndex = (currentIndex - 1 + spaces.count) % spaces.count
+            switchSpace(to: spaces[previousIndex].id)
+        } else if let firstSpace = spaces.first {
+            switchSpace(to: firstSpace.id)
+        }
+    }
+    
     public func resetToDefaultSpaces() {
         cookieStores.removeAll()
         
