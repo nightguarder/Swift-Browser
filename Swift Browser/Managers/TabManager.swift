@@ -92,10 +92,10 @@ public final class TabManager: ObservableObject {
             .store(in: &cancellables)
     }
 
-    public func addTab(url: String = "", in spaceId: UUID? = nil, isPinned: Bool = false) {
+    public func addTab(url: String = "", in spaceId: UUID? = nil, isPinned: Bool = false, isLocked: Bool = false) {
         let sid = spaceId ?? SpaceManager.shared.activeSpaceId
         let title = url.isEmpty ? "Home" : (url.hasPrefix("swiftbrowser://") ? url.replacingOccurrences(of: "swiftbrowser://", with: "").capitalized : "Loading...")
-        let newTab = BrowserTab(title: title, url: url, spaceId: sid, webView: nil, isPinned: isPinned)
+        let newTab = BrowserTab(title: title, url: url, spaceId: sid, webView: nil, isPinned: isPinned, isLocked: isLocked)
         
         // Track previous tab before switching
         if let current = currentTab {
@@ -133,8 +133,8 @@ public final class TabManager: ObservableObject {
     }
 
     public func closeTab(_ tab: BrowserTab) {
-        // Don't close pinned tabs
-        if tab.isPinned { return }
+        // Don't close locked or pinned tabs
+        if tab.isLocked || tab.isPinned { return }
         
         let closingId = tab.id
         let wasCurrent = currentTab?.id == closingId
@@ -281,8 +281,14 @@ public final class TabManager: ObservableObject {
         if let lastUsed = spaceTabs.max(by: { $0.lastUsedAt < $1.lastUsedAt }) {
             switchToTab(lastUsed)
         } else {
-            // Create pinned Home tab for new spaces
-            addTab(in: spaceId, isPinned: true)
+            // Only create a locked Home tab if this space has NEVER had any tabs
+            // Check if this space existed before (has any history)
+            let spaceHasHistory = !tabs.isEmpty && tabs.contains { $0.spaceId == spaceId }
+            if !spaceHasHistory {
+                addTab(in: spaceId, isPinned: true, isLocked: true)
+            } else {
+                addTab(in: spaceId)
+            }
         }
         
         // Background space discarding: Schedule discarding of previous space WebViews after delay
@@ -405,6 +411,8 @@ public final class TabManager: ObservableObject {
     
     public func togglePinCurrentTab() {
         guard let current = currentTab else { return }
+        // Can't unpin locked tabs (like Home)
+        if current.isLocked && current.isPinned { return }
         current.isPinned.toggle()
     }
     
@@ -456,6 +464,13 @@ public final class TabManager: ObservableObject {
         var input = addressBarText.trimmingCharacters(in: .whitespacesAndNewlines)
 
         if input.isEmpty { return }
+        
+        // If current tab is locked (Home), create a new tab instead of replacing Home
+        if currentTab.isLocked {
+            addTab(url: input)
+            addressBarText = ""
+            return
+        }
         
         // Remove focus from all elements by injecting script
         let webViewManager = ensureWebView(for: currentTab)
@@ -724,7 +739,8 @@ public final class TabManager: ObservableObject {
                 spaceId: persistedTab.spaceId,
                 webView: nil,
                 lastUsedAt: persistedTab.lastUsedAt,
-                isPinned: persistedTab.isPinned
+                isPinned: persistedTab.isPinned,
+                isLocked: persistedTab.isLocked
             )
             restoredTabs.append(tab)
         }

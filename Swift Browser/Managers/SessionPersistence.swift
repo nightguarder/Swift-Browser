@@ -18,6 +18,7 @@ struct PersistedTab: Codable {
     let url: String
     let lastUsedAt: Date
     var isPinned: Bool = false
+    var isLocked: Bool = false
 }
 
 /// Represents the complete session state
@@ -82,7 +83,8 @@ class SessionPersistence {
                 title: tab.title,
                 url: tab.url,
                 lastUsedAt: tab.lastUsedAt,
-                isPinned: tab.isPinned
+                isPinned: tab.isPinned,
+                isLocked: tab.isLocked
             )
         }
 

@@ -127,17 +127,19 @@ public struct SidebarView: View {
                     .padding(.horizontal, 8)
                     .padding(.bottom, 8)
 
-                // Tab List Header
-                let tabCount = tabManager.tabs.filter { $0.spaceId == spaceManager.activeSpaceId }.count
-                HStack {
-                    Text("Opened Tabs (\(tabCount))")
-                        .font(AppFont.caption)
-                        .foregroundColor(.secondary)
-                    Spacer()
-                    KeyboardShortcutHint("⌘↑↓")
+                // Tab List Header - only visible when sidebar is expanded
+                if isSidebarHovered {
+                    let tabCount = tabManager.tabs.filter { $0.spaceId == spaceManager.activeSpaceId }.count
+                    HStack {
+                        Text("Opened Tabs (\(tabCount))")
+                            .font(AppFont.caption)
+                            .foregroundColor(.secondary)
+                        Spacer()
+                        KeyboardShortcutHint("⌘↑↓")
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.bottom, 4)
                 }
-                .padding(.horizontal, 8)
-                .padding(.bottom, 4)
 
                 // Tab List
                 tabListView
@@ -292,7 +294,11 @@ struct DraggableTabRow: View {
             
             if isSidebarHovered {
                 HStack(spacing: 4) {
-                    if tab.isPinned {
+                    if tab.isLocked {
+                        Image(systemName: "lock.fill")
+                            .font(.system(size: 8))
+                            .foregroundColor(.orange)
+                    } else if tab.isPinned {
                         Image(systemName: "pin.fill")
                             .font(.system(size: 8))
                             .foregroundColor(.secondary)
