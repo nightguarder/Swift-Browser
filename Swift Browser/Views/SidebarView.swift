@@ -47,8 +47,10 @@ public struct SidebarView: View {
                         Text("\(userName)'s \(spaceManager.activeSpace.name) Space")
                             .font(AppFont.sidebarHeader)
                             .lineLimit(1)
-
+                        
                         Spacer()
+                        
+                        KeyboardShortcutHint("⌘←→")
                     }
                     .padding(.horizontal, 12)
                     .padding(.top, 12)
@@ -107,14 +109,7 @@ public struct SidebarView: View {
                         
                         Spacer()
                         
-                        Text("⌘K")
-                            .font(AppFont.keyboardShortcut)
-                            .foregroundColor(.secondary)
-                            .padding(.horizontal, 4)
-                            .padding(.vertical, 2)
-                            .background(Color.secondary.opacity(0.15))
-                            .cornerRadius(4)
-                            .padding(.trailing, 8)
+                        KeyboardShortcutHint("⌘K")
                     }
                 }
                 .background(Color.primary.opacity(0.1))
@@ -132,6 +127,20 @@ public struct SidebarView: View {
                     .padding(.horizontal, 8)
                     .padding(.bottom, 8)
 
+                // Tab List Header - only visible when sidebar is expanded
+                if isSidebarHovered {
+                    let tabCount = tabManager.tabs.filter { $0.spaceId == spaceManager.activeSpaceId }.count
+                    HStack {
+                        Text("Opened Tabs (\(tabCount))")
+                            .font(AppFont.caption)
+                            .foregroundColor(.secondary)
+                        Spacer()
+                        KeyboardShortcutHint("⌘↑↓")
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.bottom, 4)
+                }
+
                 // Tab List
                 tabListView
                 
@@ -144,16 +153,16 @@ public struct SidebarView: View {
                           .font(AppFont.subtitle)
                           .frame(width: AppSpacing.iconSize, height: AppSpacing.iconSize)
                          
-                         if isSidebarHovered {
-                             Text("New Tab")
-                                 .font(AppFont.caption)
-                                 .transition(.opacity.combined(with: .move(edge: .leading)))
-                                 .lineLimit(1)
-                             
-                             Spacer()
-                             
-                             KeyboardShortcutHint("⌘T")
-                         }
+                          if isSidebarHovered {
+                              Text("New Tab")
+                                  .font(AppFont.caption)
+                                  .transition(.opacity.combined(with: .move(edge: .leading)))
+                                  .lineLimit(1)
+                              
+                              Spacer()
+                              
+                              KeyboardShortcutHint("⌘T")
+                          }
                      }
                       .frame(maxWidth: .infinity, alignment: isSidebarHovered ? .leading : .center)
                       .background(Color.primary.opacity(0.05))
@@ -166,9 +175,7 @@ public struct SidebarView: View {
         .frame(width: isSidebarHovered ? AppSpacing.sidebarWidthExpanded : AppSpacing.sidebarWidthCollapsed)
         .contentShape(Rectangle())
         .onHover { hovering in
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                isSidebarHovered = hovering
-            }
+            isSidebarHovered = hovering
         }
         .animation(.spring(response: 0.3, dampingFraction: 0.8), value: isSidebarHovered)
         .overlay(Divider().frame(maxWidth: 1), alignment: .trailing)
@@ -180,7 +187,9 @@ public struct SidebarView: View {
         ScrollView(.vertical, showsIndicators: false) {
             LazyVStack(spacing: AppSpacing.sidebarItemSpacing) {
                 if tabSearchText.isEmpty {
-                    let spaceTabs = tabManager.tabs.filter { $0.spaceId == spaceManager.activeSpaceId }
+                    let spaceTabs = tabManager.tabs
+                        .filter { $0.spaceId == spaceManager.activeSpaceId }
+                        .sorted { $0.isPinned && !$1.isPinned }
                     ForEach(Array(spaceTabs.enumerated()), id: \.element.id) { index, tab in
                         DraggableTabRow(
                             tab: tab,
@@ -269,27 +278,56 @@ struct DraggableTabRow: View {
     
     var body: some View {
         HStack(spacing: AppSpacing.sidebarItemSpacing) {
-            FaviconView(urlString: tab.url, title: tab.title)
-                .frame(width: AppSpacing.smallIconSize, height: AppSpacing.smallIconSize)
-                .padding(.leading, 2)
-                .padding(.trailing, 2)
+            ZStack(alignment: .bottomTrailing) {
+                FaviconView(urlString: tab.url, title: tab.title)
+                    .frame(width: AppSpacing.smallIconSize, height: AppSpacing.smallIconSize)
+                
+                if isCurrent {
+                    Circle()
+                        .fill(Color.accentColor)
+                        .frame(width: 6, height: 6)
+                        .offset(x: 2, y: 2)
+                }
+            }
+            .padding(.leading, 2)
+            .padding(.trailing, 2)
             
             if isSidebarHovered {
-                Text(tab.title.isEmpty ? "New Tab" : tab.title)
-                    .lineLimit(1)
-                    .font(AppFont.sidebarTabTitle)
-                    .foregroundColor(isCurrent ? .primary : .secondary)
+                HStack(spacing: 4) {
+                    if tab.isLocked {
+                        Image(systemName: "lock.fill")
+                            .font(.system(size: 8))
+                            .foregroundColor(.orange)
+                    } else if tab.isPinned {
+                        Image(systemName: "pin.fill")
+                            .font(.system(size: 8))
+                            .foregroundColor(.secondary)
+                    }
+                    Text(tab.title.isEmpty ? "New Tab" : tab.title)
+                        .lineLimit(1)
+                        .font(AppFont.sidebarTabTitle)
+                        .foregroundColor(isCurrent ? .primary : .secondary)
+                }
                 
                 Spacer()
                 
-                if isCurrent || isHovered {
+                if isCurrent {
+                    Text("Current")
+                        .font(.system(size: 9, weight: .bold))
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 2)
+                        .background(Color.accentColor.opacity(0.15))
+                        .cornerRadius(4)
+                        .foregroundColor(.accentColor)
+                }
+                
+                if isHovered {
                     Button(action: onClose) {
                         Image(systemName: "xmark")
                             .font(AppFont.keyboardShortcut)
                             .foregroundColor(.secondary)
                     }
                     .buttonStyle(.plain)
-                    .help("Close Tab (⌘W)")
                 }
             }
         }
@@ -307,12 +345,8 @@ struct DraggableTabRow: View {
         .onHover { hovering in
             isHovered = hovering
             hoveredTabId = hovering ? tab.id : nil
-            if hovering {
-                NSCursor.pointingHand.push()
-            } else {
-                NSCursor.pop()
-            }
         }
+        .buttonStyle(.plain)
         .contextMenu {
             Button("Duplicate Tab", action: onDuplicate)
             Button("Close Tab", action: onClose)
@@ -380,7 +414,6 @@ public struct SidebarTabButton: View {
                             .foregroundColor(.secondary)
                     }
                     .buttonStyle(.plain)
-                    .help("Close Tab (⌘W)")
                 }
             }
         }
@@ -397,12 +430,8 @@ public struct SidebarTabButton: View {
         .onTapGesture(perform: onSelect)
         .onHover { hovering in
             hoveredTabId = hovering ? tab.id : nil
-            if hovering {
-                NSCursor.pointingHand.push()
-            } else {
-                NSCursor.pop()
-            }
         }
+        .buttonStyle(.plain)
         .contextMenu {
             Button("Duplicate Tab", action: onDuplicate)
             Button("Close Tab", action: onClose)
@@ -439,7 +468,6 @@ struct SpaceIcon: View {
                 )
             }
             .buttonStyle(.plain)
-            .help(space.name)
             
             if isSidebarHovered && isActive {
                 Text(space.name)

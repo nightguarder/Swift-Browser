@@ -18,6 +18,9 @@ public final class BrowserTab: Identifiable, ObservableObject {
     
     @Published public var title: String
     @Published public var url: String
+    @Published public var isPinned: Bool = false
+    /// Locked tabs (like Home) cannot be closed or unpinned
+    public let isLocked: Bool
     
     /// The dedicated web view manager for this tab.
     /// When nil, this tab is "discarded" and holds only lightweight state.
@@ -29,13 +32,15 @@ public final class BrowserTab: Identifiable, ObservableObject {
     
     private var cancellables = Set<AnyCancellable>()
 
-    public init(id: UUID? = nil, title: String, url: String, spaceId: UUID, webView: WebViewManager? = nil, lastUsedAt: Date? = nil) {
+    public init(id: UUID? = nil, title: String, url: String, spaceId: UUID, webView: WebViewManager? = nil, lastUsedAt: Date? = nil, isPinned: Bool = false, isLocked: Bool = false) {
         self.id = id ?? UUID()
         self.title = title
         self.url = url
         self.spaceId = spaceId
         self.webView = webView
         self.lastUsedAt = lastUsedAt ?? Date()
+        self.isPinned = isPinned
+        self.isLocked = isLocked
         
         setupBindings()
     }

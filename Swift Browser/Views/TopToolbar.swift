@@ -79,7 +79,6 @@ struct TopToolbar: View {
                                 .font(AppFont.subtitle)
                         }
                         .buttonStyle(.plain)
-                        .help("Privacy Shield Active")
                     }
 
                     // Bookmark Button

@@ -50,9 +50,7 @@ public class SpaceManager: ObservableObject {
         }
         
         let store: WKWebsiteDataStore
-        if space.name == "General" {
-            store = .default()
-        } else if let identifier = space.dataStoreIdentifier {
+        if let identifier = space.dataStoreIdentifier {
             store = WKWebsiteDataStore(forIdentifier: identifier)
         } else {
             let newIdentifier = UUID()
@@ -97,6 +95,9 @@ public class SpaceManager: ObservableObject {
     
     public func resetEncryptionKey() {
         do {
+            // Delete all encrypted cookie files first
+            CookiePersistenceManager.shared.deleteAllCookies()
+            
             try KeychainManager.shared.deleteKey()
             UserDefaults.standard.set(false, forKey: hasInitializedKey)
             try KeychainManager.shared.generateAndStoreKey()
@@ -124,6 +125,26 @@ public class SpaceManager: ObservableObject {
         activeSpaceId = spaceId
         HistoryManager.shared.setSpace(spaceId)
         BookmarkManager.shared.setSpace(spaceId)
+    }
+    
+    public func switchToNextSpace() {
+        guard !spaces.isEmpty else { return }
+        if let currentIndex = spaces.firstIndex(where: { $0.id == activeSpaceId }) {
+            let nextIndex = (currentIndex + 1) % spaces.count
+            switchSpace(to: spaces[nextIndex].id)
+        } else if let firstSpace = spaces.first {
+            switchSpace(to: firstSpace.id)
+        }
+    }
+    
+    public func switchToPreviousSpace() {
+        guard !spaces.isEmpty else { return }
+        if let currentIndex = spaces.firstIndex(where: { $0.id == activeSpaceId }) {
+            let previousIndex = (currentIndex - 1 + spaces.count) % spaces.count
+            switchSpace(to: spaces[previousIndex].id)
+        } else if let firstSpace = spaces.first {
+            switchSpace(to: firstSpace.id)
+        }
     }
     
     public func resetToDefaultSpaces() {

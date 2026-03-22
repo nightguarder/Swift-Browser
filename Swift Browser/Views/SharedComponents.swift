@@ -9,9 +9,7 @@ import SwiftUI
 /// This view is intended as a lightweight, reusable hint in toolbars, menus, or help overlays.
 public struct KeyboardShortcutHint: View {
     let keys: String
-    // Color is fixed to provide a simple, consistent appearance across the app.
-    private let color: Color = .secondary
-
+    
     public init(_ keys: String) {
         self.keys = keys
     }
@@ -19,10 +17,10 @@ public struct KeyboardShortcutHint: View {
     public var body: some View {
         Text(keys)
             .font(.system(size: 10, weight: .medium, design: .rounded))
-            .foregroundColor(color)
+            .foregroundColor(.secondary)
             .padding(.horizontal, 5)
             .padding(.vertical, 2)
-            .background(color.opacity(0.12))
+            .background(Color.secondary.opacity(0.12))
             .cornerRadius(4)
     }
 }

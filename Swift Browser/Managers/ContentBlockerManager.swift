@@ -2,738 +2,153 @@
 //  ContentBlockerManager.swift
 //  Swift Browser
 //
-//  Created by nightguarder on 2/2/26.
+//  Manages content blocking rules for WKWebView
 //
 
 import Foundation
 import WebKit
+import Combine
 
-public final class ContentBlockerManager {
+public final class ContentBlockerManager: ObservableObject {
     public static let shared = ContentBlockerManager()
-
-    private static let blocklistJSON = """
-    [
-        {
-            "trigger": {
-                "url-filter": ".*\\/ad[s]?\\/.*",
-                "resource-type": ["script", "image", "xmlhttprequest"]
-            },
-            "action": {
-                "type": "block"
-            }
-        },
-        {
-            "trigger": {
-                "url-filter": ".*\\/ads\\/.*",
-                "resource-type": ["script", "image", "xmlhttprequest"]
-            },
-            "action": {
-                "type": "block"
-            }
-        },
-        {
-            "trigger": {
-                "url-filter": ".*track.*",
-                "resource-type": ["script", "image", "xmlhttprequest"]
-            },
-            "action": {
-                "type": "block"
-            }
-        },
-        {
-            "trigger": {
-                "url-filter": ".*\\/tracker[s]?\\/.*",
-                "resource-type": ["script", "image", "xmlhttprequest"]
-            },
-            "action": {
-                "type": "block"
-            }
-        },
-        {
-            "trigger": {
-                "url-filter": ".*doubleclick\\\\.net.*"
-            },
-            "action": {
-                "type": "block"
-            }
-        },
-        {
-            "trigger": {
-                "url-filter": ".*googlesyndication\\\\.com.*"
-            },
-            "action": {
-                "type": "block"
-            }
-        },
-        {
-            "trigger": {
-                "url-filter": ".*googleadservices\\\\.com.*"
-            },
-            "action": {
-                "type": "block"
-            }
-        },
-        {
-            "trigger": {
-                "url-filter": ".*google-analytics\\\\.com.*"
-            },
-            "action": {
-                "type": "block"
-            }
-        },
-        {
-            "trigger": {
-                "url-filter": ".*googletagmanager\\\\.com.*"
-            },
-            "action": {
-                "type": "block"
-            }
-        },
-        {
-            "trigger": {
-                "url-filter": ".*facebook\\\\.com/tr.*"
-            },
-            "action": {
-                "type": "block"
-            }
-        },
-        {
-            "trigger": {
-                "url-filter": ".*connect\\\\.facebook\\\\.net.*"
-            },
-            "action": {
-                "type": "block"
-            }
-        },
-        {
-            "trigger": {
-                "url-filter": ".*adnxs\\\\.com.*"
-            },
-            "action": {
-                "type": "block"
-            }
-        },
-        {
-            "trigger": {
-                "url-filter": ".*adsrvr\\\\.org.*"
-            },
-            "action": {
-                "type": "block"
-            }
-        },
-        {
-            "trigger": {
-                "url-filter": ".*criteo\\\\.com.*"
-            },
-            "action": {
-                "type": "block"
-            }
-        },
-        {
-            "trigger": {
-                "url-filter": ".*taboola\\\\.com.*"
-            },
-            "action": {
-                "type": "block"
-            }
-        },
-        {
-            "trigger": {
-                "url-filter": ".*outbrain\\\\.com.*"
-            },
-            "action": {
-                "type": "block"
-            }
-        },
-        {
-            "trigger": {
-                "url-filter": "^https?://([^/]+\\\\.)?bat\\\\.bing\\\\.com/.*",
-                "resource-type": ["script", "image", "xmlhttprequest"],
-                "load-type": ["third-party"]
-            },
-            "action": {
-                "type": "block"
-            }
-        },
-        {
-            "trigger": {
-                "url-filter": "^https?://([^/]+\\\\.)?clarity\\\\.ms/.*",
-                "resource-type": ["script", "image", "xmlhttprequest"],
-                "load-type": ["third-party"]
-            },
-            "action": {
-                "type": "block"
-            }
-        },
-        {
-            "trigger": {
-                "url-filter": "^https?://([^/]+\\\\.)?linkedin\\\\.com/px/.*",
-                "resource-type": ["image", "script"],
-                "load-type": ["third-party"]
-            },
-            "action": { "type": "block" }
-        },
-        {
-            "trigger": {
-                "url-filter": "^https?://([^/]+\\\\.)?licdn\\\\.com/li/[a-z]+/insight\\\\.min\\\\.js",
-                "resource-type": ["script"],
-                "load-type": ["third-party"]
-            },
-            "action": { "type": "block" }
-        },
-        {
-            "trigger": {
-                "url-filter": "^https?://([^/]+\\\\.)?mixpanel\\\\.com/.*",
-                "resource-type": ["script", "image", "xmlhttprequest"],
-                "load-type": ["third-party"]
-            },
-            "action": { "type": "block" }
-        },
-        {
-            "trigger": {
-                "url-filter": "^https?://([^/]+\\\\.)?segment\\\\.io/.*",
-                "resource-type": ["script", "image", "xmlhttprequest"],
-                "load-type": ["third-party"]
-            },
-            "action": { "type": "block" }
-        },
-        {
-            "trigger": {
-                "url-filter": "^https?://([^/]+\\\\.)?segment\\\\.com/.*",
-                "resource-type": ["script", "image", "xmlhttprequest"],
-                "load-type": ["third-party"]
-            },
-            "action": { "type": "block" }
-        },
-        {
-            "trigger": {
-                "url-filter": "^https?://cdn\\\\.segment\\\\.com/.*",
-                "resource-type": ["script", "image", "xmlhttprequest"],
-                "load-type": ["third-party"]
-            },
-            "action": { "type": "block" }
-        },
-        {
-            "trigger": {
-                "url-filter": "^https?://([^/]+\\\\.)?hotjar\\\\.com/.*",
-                "resource-type": ["script", "image", "xmlhttprequest"],
-                "load-type": ["third-party"]
-            },
-            "action": { "type": "block" }
-        },
-        {
-            "trigger": {
-                "url-filter": "^https?://([^/]+\\\\.)?heap\\\\.io/.*",
-                "resource-type": ["script", "image", "xmlhttprequest"],
-                "load-type": ["third-party"]
-            },
-            "action": { "type": "block" }
-        },
-        {
-            "trigger": {
-                "url-filter": "^https?://([^/]+\\\\.)?plausible\\\\.io/.*",
-                "resource-type": ["script", "image", "xmlhttprequest"],
-                "load-type": ["third-party"]
-            },
-            "action": { "type": "block" }
-        },
-        {
-            "trigger": {
-                "url-filter": "^https?://([^/]+\\\\.)?amplitude\\\\.com/.*",
-                "resource-type": ["script", "image", "xmlhttprequest"],
-                "load-type": ["third-party"]
-            },
-            "action": { "type": "block" }
-        },
-        {
-            "trigger": {
-                "url-filter": "^https?://([^/]+\\\\.)?fullstory\\\\.com/.*",
-                "resource-type": ["script", "image", "xmlhttprequest"],
-                "load-type": ["third-party"]
-            },
-            "action": { "type": "block" }
-        },
-        {
-            "trigger": {
-                "url-filter": "^https?://([^/]+\\\\.)?kissmetrics\\\\.com/.*",
-                "resource-type": ["script", "image", "xmlhttprequest"],
-                "load-type": ["third-party"]
-            },
-            "action": { "type": "block" }
-        },
-        {
-            "trigger": {
-                "url-filter": "^https?://([^/]+\\\\.)?luckyorange\\\\.com/.*",
-                "resource-type": ["script", "image", "xmlhttprequest"],
-                "load-type": ["third-party"]
-            },
-            "action": { "type": "block" }
-        },
-        {
-            "trigger": {
-                "url-filter": "^https?://([^/]+\\\\.)?mouseflow\\\\.com/.*",
-                "resource-type": ["script", "image", "xmlhttprequest"],
-                "load-type": ["third-party"]
-            },
-            "action": { "type": "block" }
-        },
-        {
-            "trigger": {
-                "url-filter": "^https?://([^/]+\\\\.)?freshmarketer\\\\.com/.*",
-                "resource-type": ["script", "image", "xmlhttprequest"],
-                "load-type": ["third-party"]
-            },
-            "action": { "type": "block" }
-        },
-        {
-            "trigger": {
-                "url-filter": "^https?://([^/]+\\\\.)?pingdom\\\\.net/.*",
-                "resource-type": ["script", "image", "xmlhttprequest"],
-                "load-type": ["third-party"]
-            },
-            "action": { "type": "block" }
-        },
-        {
-            "trigger": {
-                "url-filter": "^https?://([^/]+\\\\.)?newrelic\\\\.com/.*",
-                "resource-type": ["script", "image", "xmlhttprequest"],
-                "load-type": ["third-party"]
-            },
-            "action": { "type": "block" }
-        },
-        {
-            "trigger": {
-                "url-filter": "^https?://([^/]+\\\\.)?nr-data\\\\.net/.*",
-                "resource-type": ["script", "image", "xmlhttprequest"],
-                "load-type": ["third-party"]
-            },
-            "action": { "type": "block" }
-        },
-        {
-            "trigger": {
-                "url-filter": "^https?://([^/]+\\\\.)?criteo\\\\.com/.*",
-                "resource-type": ["script", "image", "xmlhttprequest"],
-                "load-type": ["third-party"]
-            },
-            "action": { "type": "block" }
-        },
-        {
-            "trigger": {
-                "url-filter": "^https?://([^/]+\\\\.)?criteo\\\\.net/.*",
-                "resource-type": ["script", "image", "xmlhttprequest"],
-                "load-type": ["third-party"]
-            },
-            "action": { "type": "block" }
-        },
-        {
-            "trigger": {
-                "url-filter": "^https?://([^/]+\\\\.)?adnxs\\\\.com/.*",
-                "resource-type": ["script", "image", "xmlhttprequest"],
-                "load-type": ["third-party"]
-            },
-            "action": { "type": "block" }
-        },
-        {
-            "trigger": {
-                "url-filter": "^https?://([^/]+\\\\.)?adsafeprotected\\\\.com/.*",
-                "resource-type": ["script", "image", "xmlhttprequest"],
-                "load-type": ["third-party"]
-            },
-            "action": { "type": "block" }
-        },
-        {
-            "trigger": {
-                "url-filter": "^https?://([^/]+\\\\.)?moatads\\\\.com/.*",
-                "resource-type": ["script", "image", "xmlhttprequest"],
-                "load-type": ["third-party"]
-            },
-            "action": { "type": "block" }
-        },
-        {
-            "trigger": {
-                "url-filter": "^https?://([^/]+\\\\.)?taboola\\\\.com/.*",
-                "resource-type": ["script", "image", "xmlhttprequest"],
-                "load-type": ["third-party"]
-            },
-            "action": { "type": "block" }
-        },
-        {
-            "trigger": {
-                "url-filter": "^https?://([^/]+\\\\.)?outbrain\\\\.com/.*",
-                "resource-type": ["script", "image", "xmlhttprequest"],
-                "load-type": ["third-party"]
-            },
-            "action": {
-                "type": "block"
-            }
-        },
-        {
-            "trigger": {
-                "url-filter": "^https?://([^/]+\\\\.)?rubiconproject\\\\.com/.*",
-                "resource-type": ["script", "image", "xmlhttprequest"],
-                "load-type": ["third-party"]
-            },
-            "action": { "type": "block" }
-        },
-        {
-            "trigger": {
-                "url-filter": "^https?://([^/]+\\\\.)?pubmatic\\\\.com/.*",
-                "resource-type": ["script", "image", "xmlhttprequest"],
-                "load-type": ["third-party"]
-            },
-            "action": { "type": "block" }
-        },
-        {
-            "trigger": {
-                "url-filter": "^https?://([^/]+\\\\.)?openx\\\\.net/.*",
-                "resource-type": ["script", "image", "xmlhttprequest"],
-                "load-type": ["third-party"]
-            },
-            "action": { "type": "block" }
-        },
-        {
-            "trigger": {
-                "url-filter": "^https?://([^/]+\\\\.)?indexww\\\\.com/.*",
-                "resource-type": ["script", "image", "xmlhttprequest"],
-                "load-type": ["third-party"]
-            },
-            "action": { "type": "block" }
-        },
-        {
-            "trigger": {
-                "url-filter": "^https?://([^/]+\\\\.)?sharethrough\\\\.com/.*",
-                "resource-type": ["script", "image", "xmlhttprequest"],
-                "load-type": ["third-party"]
-            },
-            "action": { "type": "block" }
-        },
-        {
-            "trigger": {
-                "url-filter": "^https?://([^/]+\\\\.)?pinterest\\\\.com/.*",
-                "resource-type": ["script", "image", "xmlhttprequest"],
-                "load-type": ["third-party"]
-            },
-            "action": { "type": "block" }
-        },
-        {
-            "trigger": {
-                "url-filter": "^https?://([^/]+\\\\.)?snapchat\\\\.com/.*",
-                "resource-type": ["script", "image", "xmlhttprequest"],
-                "load-type": ["third-party"]
-            },
-            "action": { "type": "block" }
-        },
-        {
-            "trigger": {
-                "url-filter": "^https?://([^/]+\\\\.)?tiktok\\\\.com/.*",
-                "resource-type": ["script", "image", "xmlhttprequest"],
-                "load-type": ["third-party"]
-            },
-            "action": { "type": "block" }
-        },
-        {
-            "trigger": {
-                "url-filter": "^https?://([^/]+\\\\.)?redditstatic\\\\.com/.*",
-                "resource-type": ["script", "image", "xmlhttprequest"],
-                "load-type": ["third-party"]
-            },
-            "action": { "type": "block" }
-        },
-        {
-            "trigger": {
-                "url-filter": "^https?://([^/]+\\\\.)?reddit\\\\.com/api/.*",
-                "resource-type": ["script", "xmlhttprequest"],
-                "load-type": ["third-party"]
-            },
-            "action": { "type": "block" }
-        },
-        {
-            "trigger": {
-                "url-filter": "^https?://([^/]+\\\\.)?youtube\\\\.com/ptracking",
-                "resource-type": ["script", "image", "xmlhttprequest"]
-            },
-            "action": {
-                "type": "block"
-            }
-        },
-        {
-            "trigger": {
-                "url-filter": ".*openx\\\\.net.*"
-            },
-            "action": {
-                "type": "block"
-            }
-        },
-        {
-            "trigger": {
-                "url-filter": ".*mediago.*"
-            },
-            "action": {
-                "type": "block"
-            }
-        },
-        {
-            "trigger": {
-                "url-filter": "^https?://([^/]+\\\\.)?disqus\\\\.com/.*",
-                "resource-type": ["script", "image", "xmlhttprequest"],
-                "load-type": ["third-party"]
-            },
-            "action": {
-                "type": "block"
-            }
-        },
-        {
-            "trigger": {
-                "url-filter": "^https?://([^/]+\\\\.)?disquscdn\\\\.com/.*",
-                "resource-type": ["script", "image", "xmlhttprequest"],
-                "load-type": ["third-party"]
-            },
-            "action": { "type": "block" }
-        },
-        {
-            "trigger": {
-                "url-filter": "^https?://([^/]+\\\\.)?intercom\\\\.io/.*",
-                "resource-type": ["script", "image", "xmlhttprequest"],
-                "load-type": ["third-party"]
-            },
-            "action": { "type": "block" }
-        },
-        {
-            "trigger": {
-                "url-filter": "^https?://([^/]+\\\\.)?intercomcdn\\\\.com/.*",
-                "resource-type": ["script", "image", "xmlhttprequest"],
-                "load-type": ["third-party"]
-            },
-            "action": { "type": "block" }
-        },
-        {
-            "trigger": {
-                "url-filter": "^https?://([^/]+\\\\.)?zendesk\\\\.com/.*",
-                "resource-type": ["script", "image", "xmlhttprequest"],
-                "load-type": ["third-party"]
-            },
-            "action": { "type": "block" }
-        },
-        {
-            "trigger": {
-                "url-filter": "^https?://([^/]+\\\\.)?zopim\\\\.com/.*",
-                "resource-type": ["script", "image", "xmlhttprequest"],
-                "load-type": ["third-party"]
-            },
-            "action": { "type": "block" }
-        },
-        {
-            "trigger": {
-                "url-filter": "^https?://([^/]+\\\\.)?driftt\\\\.com/.*",
-                "resource-type": ["script", "image", "xmlhttprequest"],
-                "load-type": ["third-party"]
-            },
-            "action": { "type": "block" }
-        },
-        {
-            "trigger": {
-                "url-filter": "^https?://([^/]+\\\\.)?crisp\\\\.chat/.*",
-                "resource-type": ["script", "image", "xmlhttprequest"],
-                "load-type": ["third-party"]
-            },
-            "action": { "type": "block" }
-        },
-        {
-            "trigger": {
-                "url-filter": "^https?://([^/]+\\\\.)?tidio\\\\.co/.*",
-                "resource-type": ["script", "image", "xmlhttprequest"],
-                "load-type": ["third-party"]
-            },
-            "action": { "type": "block" }
-        },
-        {
-            "trigger": {
-                "url-filter": "^https?://([^/]+\\\\.)?tawk\\\\.to/.*",
-                "resource-type": ["script", "image", "xmlhttprequest"],
-                "load-type": ["third-party"]
-            },
-            "action": { "type": "block" }
-        },
-        {
-            "trigger": {
-                "url-filter": "^https?://([^/]+\\\\.)?fingerprintjs\\\\.com/.*",
-                "resource-type": ["script", "image", "xmlhttprequest"],
-                "load-type": ["third-party"]
-            },
-            "action": { "type": "block" }
-        },
-        {
-            "trigger": {
-                "url-filter": "^https?://cdn\\\\.fingerprintjs\\\\.com/.*",
-                "resource-type": ["script", "image", "xmlhttprequest"],
-                "load-type": ["third-party"]
-            },
-            "action": { "type": "block" }
-        },
-        {
-            "trigger": {
-                "url-filter": "^https?://([^/]+\\\\.)?quantserve\\\\.com/.*",
-                "resource-type": ["script", "image", "xmlhttprequest"],
-                "load-type": ["third-party"]
-            },
-            "action": { "type": "block" }
-        },
-        {
-            "trigger": {
-                "url-filter": "^https?://([^/]+\\\\.)?scorecardresearch\\\\.com/.*",
-                "resource-type": ["script", "image", "xmlhttprequest"],
-                "load-type": ["third-party"]
-            },
-            "action": { "type": "block" }
-        },
-        {
-            "trigger": {
-                "url-filter": "^https?://([^/]+\\\\.)?comscore\\\\.com/.*",
-                "resource-type": ["script", "image", "xmlhttprequest"],
-                "load-type": ["third-party"]
-            },
-            "action": { "type": "block" }
-        },
-        {
-            "trigger": {
-                "url-filter": "^https?://([^/]+\\\\.)?mathtag\\\\.com/.*",
-                "resource-type": ["script", "image", "xmlhttprequest"],
-                "load-type": ["third-party"]
-            },
-            "action": { "type": "block" }
-        },
-        {
-            "trigger": {
-                "url-filter": "^https?://([^/]+\\\\.)?bluekai\\\\.com/.*",
-                "resource-type": ["script", "image", "xmlhttprequest"],
-                "load-type": ["third-party"]
-            },
-            "action": { "type": "block" }
-        },
-        {
-            "trigger": {
-                "url-filter": "^https?://([^/]+\\\\.)?addthis\\\\.com/.*",
-                "resource-type": ["script", "image", "xmlhttprequest"],
-                "load-type": ["third-party"]
-            },
-            "action": { "type": "block" }
-        },
-        {
-            "trigger": {
-                "url-filter": "^https?://([^/]+\\\\.)?sharethis\\\\.com/.*",
-                "resource-type": ["script", "image", "xmlhttprequest"],
-                "load-type": ["third-party"]
-            },
-            "action": { "type": "block" }
-        },
-        {
-            "trigger": {
-                "url-filter": "^https?://([^/]+\\\\.)?gravatar\\\\.com/.*",
-                "resource-type": ["script", "xmlhttprequest"],
-                "load-type": ["third-party"]
-            },
-            "action": { "type": "block" }
-        },
-        {
-            "trigger": {
-                "url-filter": "^https?://([^/]+\\\\.)?mailchimp\\\\.com/mc/.*",
-                "resource-type": ["script", "image", "xmlhttprequest"],
-                "load-type": ["third-party"]
-            },
-            "action": { "type": "block" }
-        },
-        {
-            "trigger": {
-                "url-filter": "^https?://([^/]+\\\\.)?googleapis\\\\.com/.*",
-                "load-type": ["third-party"]
-            },
-            "action": { "type": "ignore-previous-rules" }
-        },
-        {
-            "trigger": {
-                "url-filter": "^https?://([^/]+\\\\.)?gstatic\\\\.com/.*",
-                "load-type": ["third-party"]
-            },
-            "action": { "type": "ignore-previous-rules" }
-        },
-        {
-            "trigger": {
-                "url-filter": "^https?://([^/]+\\\\.)?ajax\\\\.googleapis\\\\.com/.*",
-                "load-type": ["third-party"]
-            },
-            "action": { "type": "ignore-previous-rules" }
-        },
-        {
-            "trigger": {
-                "url-filter": "^https?://([^/]+\\\\.)?fonts\\\\.googleapis\\\\.com/.*",
-                "load-type": ["third-party"]
-            },
-            "action": { "type": "ignore-previous-rules" }
-        },
-        {
-            "trigger": {
-                "url-filter": "^https?://([^/]+\\\\.)?fonts\\\\.gstatic\\\\.com/.*",
-                "load-type": ["third-party"]
-            },
-            "action": { "type": "ignore-previous-rules" }
-        },
-        {
-            "trigger": {
-                "url-filter": "^https?://([^/]+\\\\.)?cdnjs\\\\.cloudflare\\\\.com/.*",
-                "load-type": ["third-party"]
-            },
-            "action": { "type": "ignore-previous-rules" }
-        },
-        {
-            "trigger": {
-                "url-filter": "^https?://([^/]+\\\\.)?unpkg\\\\.com/.*",
-                "load-type": ["third-party"]
-            },
-            "action": { "type": "ignore-previous-rules" }
-        },
-        {
-            "trigger": {
-                "url-filter": "^https?://([^/]+\\\\.)?jsdelivr\\\\.net/.*",
-                "load-type": ["third-party"]
-            },
-            "action": { "type": "ignore-previous-rules" }
-        },
-        {
-            "trigger": {
-                "url-filter": "^https?://([^/]+\\\\.)?bootstrapcdn\\\\.com/.*",
-                "load-type": ["third-party"]
-            },
-            "action": {
-                "type": "block"
-            }
-        }
-    ]
-    """
-
+    
+    @Published private(set) var isEnabled = true
+    @Published private(set) var compiledRuleLists: [WKContentRuleList] = []
+    @Published private(set) var lastUpdate: Date?
+    @Published private(set) var totalRules = 0
+    @Published private(set) var ruleLimitWarning = false
+    
+    private let filterListManager = FilterListManager.shared
+    private let converter = ContentBlockerConverter()
     private var compiledRuleList: WKContentRuleList?
-
+    
+    private init() {
+        loadCompiledRules()
+    }
+    
     public func applyBlocklist(to configuration: WKWebViewConfiguration, completion: @escaping () -> Void) {
-        if let ruleList = compiledRuleList {
-            configuration.userContentController.add(ruleList)
+        guard isEnabled else {
             completion()
             return
         }
-
-        WKContentRuleListStore.default().compileContentRuleList(
-            forIdentifier: "SwiftBrowserBlockList",
-            encodedContentRuleList: Self.blocklistJSON
-        ) { [weak self] ruleList, error in
-            if let ruleList = ruleList {
-                self?.compiledRuleList = ruleList
-                configuration.userContentController.add(ruleList)
-            }
-            completion()
+        
+        let controller = configuration.userContentController
+        
+        for ruleList in compiledRuleLists {
+            controller.add(ruleList)
+        }
+        
+        completion()
+    }
+    
+    public func removeBlocklist(from userContentController: WKUserContentController) {
+        for ruleList in compiledRuleLists {
+            userContentController.remove(ruleList)
         }
     }
-
-    public func removeBlocklist(from userContentController: WKUserContentController) {
-        guard let ruleList = compiledRuleList else { return }
-        userContentController.remove(ruleList)
-        compiledRuleList = nil
+    
+    func updateFilterLists() async -> FilterUpdateSummary {
+        let summary = await filterListManager.updateAllLists()
+        
+        await MainActor.run {
+            ruleLimitWarning = summary.ruleLimitReached
+            lastUpdate = summary.results.first?.timestamp
+        }
+        
+        await compileRules()
+        
+        return summary
+    }
+    
+    func toggleFilterList(id: String, enabled: Bool) {
+        filterListManager.toggleFilterList(id: id, enabled: enabled)
+        
+        Task {
+            await compileRules()
+        }
+    }
+    
+    func getFilterListStatus() -> FilterListStatus {
+        filterListManager.getFilterListStatus()
+    }
+    
+    func getFilterLists() -> [FilterList] {
+        filterListManager.getFilterLists()
+    }
+    
+    public func setEnabled(_ enabled: Bool) {
+        isEnabled = enabled
+    }
+    
+    public func reloadRules() {
+        Task {
+            await compileRules()
+        }
+    }
+    
+    private func loadCompiledRules() {
+        Task {
+            await compileRules()
+        }
+    }
+    
+    private func compileRules() async {
+        var newRuleLists: [WKContentRuleList] = []
+        var rulesCount = 0
+        let maxRules = 50000
+        
+        let enabledLists = filterListManager.getEnabledLists()
+        
+        for filterList in enabledLists {
+            guard let content = await filterListManager.getCachedFilterList(for: filterList.id) else {
+                continue
+            }
+            
+            let result = converter.convert(filterContent: content, maxRules: maxRules - rulesCount)
+            
+            guard !result.json.isEmpty, result.json != "[]" else {
+                continue
+            }
+            
+            do {
+                let ruleList = try await compileRuleList(json: result.json, identifier: filterList.id)
+                newRuleLists.append(ruleList)
+                rulesCount += result.ruleCount
+                
+                if rulesCount >= maxRules {
+                    break
+                }
+            } catch {
+                print("Failed to compile rule list for \(filterList.name): \(error)")
+            }
+        }
+        
+        await MainActor.run {
+            self.compiledRuleLists = newRuleLists
+            self.totalRules = rulesCount
+            self.lastUpdate = filterListManager.getFilterListStatus().lastUpdate
+            self.ruleLimitWarning = rulesCount >= maxRules
+        }
+    }
+    
+    private func compileRuleList(json: String, identifier: String) async throws -> WKContentRuleList {
+        try await withCheckedThrowingContinuation { continuation in
+            WKContentRuleListStore.default().compileContentRuleList(
+                forIdentifier: "SwiftBrowser.\(identifier)",
+                encodedContentRuleList: json
+            ) { ruleList, error in
+                if let error = error {
+                    continuation.resume(throwing: error)
+                } else if let ruleList = ruleList {
+                    continuation.resume(returning: ruleList)
+                } else {
+                    continuation.resume(throwing: NSError(
+                        domain: "ContentBlockerManager",
+                        code: -1,
+                        userInfo: [NSLocalizedDescriptionKey: "Unknown compilation error"]
+                    ))
+                }
+            }
+        }
     }
 }

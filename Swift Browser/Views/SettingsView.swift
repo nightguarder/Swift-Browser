@@ -7,11 +7,14 @@
 
 import SwiftUI
 import WebKit
+import Combine
 
 public struct SettingsView: View {
     @ObservedObject var tabManager: TabManager
     @ObservedObject private var duckPlayerSettings = DuckPlayerSettings.shared
+    @ObservedObject private var contentBlockerManager = ContentBlockerManager.shared
     @State private var showResetConfirmation = false
+    @State private var isUpdatingFilters = false
     @AppStorage("contentBlockerEnabled") private var contentBlockerEnabled = true
     @AppStorage("darkModePreference") private var darkModePreference: DarkModeManager.DarkModePreference = .system
     @AppStorage("doNotTrackEnabled") private var doNotTrackEnabled = true
@@ -46,6 +49,87 @@ public struct SettingsView: View {
             
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
+                    // Content Blocker Section
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Content Blocking")
+                            .font(.system(size: 16, weight: .bold))
+                            .padding(.bottom, 4)
+                        
+                        // Filter Lists Status
+                        HStack {
+                            Image(systemName: "list.bullet.rectangle.fill")
+                                .foregroundColor(.purple)
+                                .font(.system(size: 20))
+                                .frame(width: 24)
+                            
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Filter Lists")
+                                    .font(.system(size: 14, weight: .medium))
+                                Text("\(contentBlockerManager.totalRules) rules active")
+                                    .font(.system(size: 11))
+                                    .foregroundColor(.secondary)
+                            }
+                            
+                            Spacer()
+                            
+                            Button(action: {
+                                isUpdatingFilters = true
+                                Task {
+                                    _ = await contentBlockerManager.updateFilterLists()
+                                    isUpdatingFilters = false
+                                }
+                            }) {
+                                if isUpdatingFilters {
+                                    ProgressView()
+                                        .scaleEffect(0.7)
+                                } else {
+                                    Text("Update Now")
+                                        .font(.system(size: 12))
+                                }
+                            }
+                            .buttonStyle(.bordered)
+                            .disabled(isUpdatingFilters)
+                        }
+                        .padding(12)
+                        .background(Color.purple.opacity(0.05))
+                        .cornerRadius(8)
+                        
+                        // Rule Limit Warning
+                        if contentBlockerManager.ruleLimitWarning {
+                            HStack {
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                    .foregroundColor(.orange)
+                                    .font(.system(size: 14))
+                                
+                                Text("Rule limit reached. Some filters may be inactive.")
+                                    .font(.system(size: 12))
+                                    .foregroundColor(.orange)
+                            }
+                            .padding(12)
+                            .background(Color.orange.opacity(0.1))
+                            .cornerRadius(8)
+                        }
+                        
+                        // Filter Lists
+                        ForEach(contentBlockerManager.getFilterLists()) { filterList in
+                            FilterListRow(
+                                filterList: filterList,
+                                onToggle: { enabled in
+                                    contentBlockerManager.toggleFilterList(id: filterList.id, enabled: enabled)
+                                    tabManager.updateContentBlocker(enabled: contentBlockerEnabled)
+                                }
+                            )
+                        }
+                        
+                        // Last Update
+                        if let lastUpdate = contentBlockerManager.lastUpdate {
+                            Text("Last updated: \(formatDate(lastUpdate))")
+                                .font(.system(size: 11))
+                                .foregroundColor(.secondary)
+                                .padding(.horizontal, 12)
+                        }
+                    }
+                    
                     // Privacy & Security Section
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Privacy & Security")
@@ -351,6 +435,58 @@ public struct SettingsView: View {
         "doNotTrackEnabled", "developerModeEnabled", "tabDiscardingEnabled",
         "duckPlayerMode", "duckPlayerAskOverlayHidden"
     ]
+    
+    private func formatDate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
+        return formatter.string(from: date)
+    }
+}
+
+struct FilterListRow: View {
+    let filterList: FilterList
+    let onToggle: (Bool) -> Void
+    
+    @State private var isEnabled: Bool
+    
+    init(filterList: FilterList, onToggle: @escaping (Bool) -> Void) {
+        self.filterList = filterList
+        self.onToggle = onToggle
+        self._isEnabled = State(initialValue: filterList.isEnabled)
+    }
+    
+    var body: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(filterList.name)
+                    .font(.system(size: 13, weight: .medium))
+                
+                Text(filterList.description)
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary)
+                    .lineLimit(2)
+                
+                if let ruleCount = filterList.ruleCount {
+                    Text("\(ruleCount) rules")
+                        .font(.system(size: 10))
+                        .foregroundColor(.secondary)
+                }
+            }
+            
+            Spacer()
+            
+            Toggle("", isOn: $isEnabled)
+                .toggleStyle(.switch)
+                .labelsHidden()
+                .onChange(of: isEnabled) { newValue in
+                    onToggle(newValue)
+                }
+        }
+        .padding(10)
+        .background(Color.gray.opacity(0.05))
+        .cornerRadius(6)
+    }
 }
 
 struct SpaceCookieSettingsRow: View {

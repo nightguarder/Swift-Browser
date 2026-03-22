@@ -92,10 +92,10 @@ public final class TabManager: ObservableObject {
             .store(in: &cancellables)
     }
 
-    public func addTab(url: String = "", in spaceId: UUID? = nil) {
+    public func addTab(url: String = "", in spaceId: UUID? = nil, isPinned: Bool = false, isLocked: Bool = false) {
         let sid = spaceId ?? SpaceManager.shared.activeSpaceId
         let title = url.isEmpty ? "Home" : (url.hasPrefix("swiftbrowser://") ? url.replacingOccurrences(of: "swiftbrowser://", with: "").capitalized : "Loading...")
-        let newTab = BrowserTab(title: title, url: url, spaceId: sid, webView: nil)
+        let newTab = BrowserTab(title: title, url: url, spaceId: sid, webView: nil, isPinned: isPinned, isLocked: isLocked)
         
         // Track previous tab before switching
         if let current = currentTab {
@@ -133,6 +133,9 @@ public final class TabManager: ObservableObject {
     }
 
     public func closeTab(_ tab: BrowserTab) {
+        // Don't close locked or pinned tabs
+        if tab.isLocked || tab.isPinned { return }
+        
         let closingId = tab.id
         let wasCurrent = currentTab?.id == closingId
 
@@ -159,13 +162,25 @@ public final class TabManager: ObservableObject {
 
         var nextTab: BrowserTab?
         if wasCurrent {
+            let closingSpaceId = tab.spaceId
+            
+            // First try: previousTabId (if still valid)
             if let prevId = previousTabId, let prevTab = tabs.first(where: { $0.id == prevId }), prevTab.id != closingId {
                 nextTab = prevTab
             } else if let idx = tabs.firstIndex(where: { $0.id == closingId }) {
+                // Second try: adjacent tab in array
                 if idx > 0 {
                     nextTab = tabs[idx - 1]
                 } else if idx + 1 < tabs.count {
                     nextTab = tabs[idx + 1]
+                }
+            }
+            
+            // Third try: any remaining tab in the SAME space
+            if nextTab == nil || nextTab?.spaceId != closingSpaceId {
+                let sameSpaceTab = tabs.first(where: { $0.spaceId == closingSpaceId && $0.id != closingId })
+                if sameSpaceTab != nil {
+                    nextTab = sameSpaceTab
                 }
             }
             
@@ -179,8 +194,14 @@ public final class TabManager: ObservableObject {
             tabs.removeAll { $0.id == closingId }
 
             if wasCurrent {
-                currentTab = nextTab
-                addressBarText = nextTab?.url ?? ""
+                // Use switchToTab to properly handle space switching if needed
+                if let next = nextTab {
+                    switchToTab(next)
+                } else {
+                    // No tabs left - create a new tab in current space
+                    currentTab = nil
+                    addressBarText = ""
+                }
                 previousTabId = nil
             }
         }
@@ -213,6 +234,10 @@ public final class TabManager: ObservableObject {
     public func switchToTab(_ tab: BrowserTab) {
         // FIX: Switch to the tab's space first if it's in a different space
         if tab.spaceId != SpaceManager.shared.activeSpaceId {
+            // Track previous tab before switching spaces
+            if let current = currentTab, current.id != tab.id {
+                previousTabId = current.id
+            }
             switchSpace(to: tab.spaceId)
             // After switching space, switchToTab will be called again with the last used tab
             // We need to specifically select this tab instead
@@ -256,7 +281,14 @@ public final class TabManager: ObservableObject {
         if let lastUsed = spaceTabs.max(by: { $0.lastUsedAt < $1.lastUsedAt }) {
             switchToTab(lastUsed)
         } else {
-            addTab(in: spaceId)
+            // Only create a locked Home tab if this space has NEVER had any tabs
+            // Check if this space existed before (has any history)
+            let spaceHasHistory = !tabs.isEmpty && tabs.contains { $0.spaceId == spaceId }
+            if !spaceHasHistory {
+                addTab(in: spaceId, isPinned: true, isLocked: true)
+            } else {
+                addTab(in: spaceId)
+            }
         }
         
         // Background space discarding: Schedule discarding of previous space WebViews after delay
@@ -277,9 +309,12 @@ public final class TabManager: ObservableObject {
             // Get current active space to make sure we don't discard it
             let activeSpaceId = SpaceManager.shared.activeSpaceId
             
-            // Find the most recently used tab in the previous space to keep it alive
-            let previousSpaceTabs = self.tabs.filter { $0.spaceId == previousSpaceId }
-            let lastUsedInPreviousSpace = previousSpaceTabs.max(by: { $0.lastUsedAt < $1.lastUsedAt })
+            // Find the most recently used tabs in the previous space to keep alive
+            // Keep top 2 to preserve Web Inspector state
+            let previousSpaceTabs = self.tabs
+                .filter { $0.spaceId == previousSpaceId }
+                .sorted { $0.lastUsedAt > $1.lastUsedAt }
+            let tabsToKeep = Set(previousSpaceTabs.prefix(2).map { $0.id })
             
             var discardedCount = 0
             for tab in self.tabs {
@@ -294,9 +329,9 @@ public final class TabManager: ObservableObject {
                 // Don't discard if it's the current tab
                 guard tab.id != self.currentTab?.id else { continue }
                 
-                // HARDENING: Don't discard the most recently used tab in that space.
+                // Don't discard the top 2 most recently used tabs in that space.
                 // This preserves the Web Inspector and page state if the user switches back soon.
-                guard tab.id != lastUsedInPreviousSpace?.id else { continue }
+                guard tabsToKeep.contains(tab.id) else { continue }
                 
                 self.discardTabWebView(tab)
                 discardedCount += 1
@@ -311,15 +346,21 @@ public final class TabManager: ObservableObject {
     }
 
     public func nextTab() {
-        guard let current = currentTab, let index = tabs.firstIndex(where: { $0.id == current.id }) else { return }
-        let nextIndex = (index + 1) % tabs.count
-        switchToTab(tabs[nextIndex])
+        let currentSpaceId = SpaceManager.shared.activeSpaceId
+        let spaceTabs = tabs.filter { $0.spaceId == currentSpaceId }
+        guard let current = currentTab,
+              let currentIndex = spaceTabs.firstIndex(where: { $0.id == current.id }) else { return }
+        let nextIndex = (currentIndex + 1) % spaceTabs.count
+        switchToTab(spaceTabs[nextIndex])
     }
-
+    
     public func previousTab() {
-        guard let current = currentTab, let index = tabs.firstIndex(where: { $0.id == current.id }) else { return }
-        let prevIndex = (index - 1 + tabs.count) % tabs.count
-        switchToTab(tabs[prevIndex])
+        let currentSpaceId = SpaceManager.shared.activeSpaceId
+        let spaceTabs = tabs.filter { $0.spaceId == currentSpaceId }
+        guard let current = currentTab,
+              let currentIndex = spaceTabs.firstIndex(where: { $0.id == current.id }) else { return }
+        let prevIndex = (currentIndex - 1 + spaceTabs.count) % spaceTabs.count
+        switchToTab(spaceTabs[prevIndex])
     }
 
     public func switchToIndex(_ index: Int) {
@@ -367,7 +408,14 @@ public final class TabManager: ObservableObject {
         guard let current = currentTab else { return }
         duplicate(current)
     }
-
+    
+    public func togglePinCurrentTab() {
+        guard let current = currentTab else { return }
+        // Can't unpin locked tabs (like Home)
+        if current.isLocked && current.isPinned { return }
+        current.isPinned.toggle()
+    }
+    
     /// Reopens the most recently closed tab
     public func reopenClosedTab() {
         guard !recentlyClosedTabs.isEmpty else { return }
@@ -416,6 +464,13 @@ public final class TabManager: ObservableObject {
         var input = addressBarText.trimmingCharacters(in: .whitespacesAndNewlines)
 
         if input.isEmpty { return }
+        
+        // If current tab is locked (Home), create a new tab instead of replacing Home
+        if currentTab.isLocked {
+            addTab(url: input)
+            addressBarText = ""
+            return
+        }
         
         // Remove focus from all elements by injecting script
         let webViewManager = ensureWebView(for: currentTab)
@@ -683,7 +738,9 @@ public final class TabManager: ObservableObject {
                 url: persistedTab.url,
                 spaceId: persistedTab.spaceId,
                 webView: nil,
-                lastUsedAt: persistedTab.lastUsedAt
+                lastUsedAt: persistedTab.lastUsedAt,
+                isPinned: persistedTab.isPinned,
+                isLocked: persistedTab.isLocked
             )
             restoredTabs.append(tab)
         }

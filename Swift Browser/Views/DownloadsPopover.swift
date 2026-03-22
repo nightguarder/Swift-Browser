@@ -32,7 +32,6 @@ struct DownloadsPopover: View {
                         .font(.caption)
                 }
                 .buttonStyle(.plain)
-                .help("Open Downloads Folder")
                 
                 Button(action: { isPresented = false }) {
                     Image(systemName: "xmark")
@@ -193,14 +192,12 @@ struct DownloadRow: View {
                                     .font(.system(size: 12))
                             }
                             .buttonStyle(.plain)
-                            .help("Open File")
                             
                             Button(action: { download.revealInFinder() }) {
                                 Image(systemName: "folder")
                                     .font(.system(size: 12))
                             }
                             .buttonStyle(.plain)
-                            .help("Show in Finder")
                         }
                     } else {
                         Image(systemName: "checkmark.circle.fill")

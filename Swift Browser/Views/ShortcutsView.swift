@@ -23,6 +23,7 @@ struct ShortcutsView: View {
         ShortcutItem(title: "Next Tab (Ctrl)", keys: "⌃ Tab", category: "Tabs"),
         ShortcutItem(title: "Previous Tab (Ctrl)", keys: "⌃ ⇧ Tab", category: "Tabs"),
         ShortcutItem(title: "Duplicate Tab", keys: "⌘ D", category: "Tabs"),
+        ShortcutItem(title: "Pin/Unpin Tab", keys: "⌘ P", category: "Tabs"),
         ShortcutItem(title: "Switch to Tab 1-9", keys: "⌘ 1-9", category: "Tabs"),
 
         // Navigation
@@ -30,6 +31,10 @@ struct ShortcutsView: View {
         ShortcutItem(title: "Reload Page", keys: "⌘ R", category: "Navigation"),
         ShortcutItem(title: "Go Back", keys: "⌘ [", category: "Navigation"),
         ShortcutItem(title: "Go Forward", keys: "⌘ ]", category: "Navigation"),
+        ShortcutItem(title: "Next Tab", keys: "⌘ ↓", category: "Navigation"),
+        ShortcutItem(title: "Previous Tab", keys: "⌘ ↑", category: "Navigation"),
+        ShortcutItem(title: "Next Space", keys: "⌘ →", category: "Navigation"),
+        ShortcutItem(title: "Previous Space", keys: "⌘ ←", category: "Navigation"),
 
         // Zoom
         ShortcutItem(title: "Zoom In", keys: "⌘ +", category: "Zoom"),
@@ -44,7 +49,7 @@ struct ShortcutsView: View {
 
         // Tools
         ShortcutItem(title: "Toggle Find in Page", keys: "⌘ F", category: "Tools"),
-        ShortcutItem(title: "Toggle Tab Search", keys: "⌘ K", category: "Tools"),
+        ShortcutItem(title: "Toggle Tab Search / Navigator", keys: "⌘ K", category: "Tools"),
         ShortcutItem(title: "Toggle Downloads", keys: "⌘ J", category: "Tools"),
         ShortcutItem(title: "Copy Page URL", keys: "⌘ ⌥ C", category: "Tools"),
         ShortcutItem(title: "Web Inspector", keys: "F12 / ⌘ ⌥ I", category: "Tools"),
