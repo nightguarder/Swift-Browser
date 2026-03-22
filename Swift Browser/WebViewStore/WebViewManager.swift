@@ -46,7 +46,7 @@ public final class WebViewManager: NSObject, ObservableObject, WKNavigationDeleg
         self.dataStore = dataStore
         self.isPrivateSpace = isPrivateSpace
         self.spaceId = spaceId
-        
+
         let config = configuration ?? WKWebViewConfiguration()
         config.websiteDataStore = dataStore
         config.processPool = SpaceManager.shared.processPool

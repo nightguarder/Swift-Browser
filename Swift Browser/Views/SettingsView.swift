@@ -388,10 +388,13 @@ public struct SettingsView: View {
         // 1. Clear all UserDefaults
         defaults.dictionaryRepresentation().keys.filter { $0.hasPrefix(bundleID) || appSpecificKeys.contains($0) }.forEach { defaults.removeObject(forKey: $0) }
 
-        // 2. Clear website data (cookies, cache, local storage, etc.)
+        // 2. Clear website data for ALL space data stores (not just .default())
         let websiteDataTypes = WKWebsiteDataStore.allWebsiteDataTypes()
         let date = Date(timeIntervalSince1970: 0)
-        WKWebsiteDataStore.default().removeData(ofTypes: websiteDataTypes, modifiedSince: date) { }
+        for space in SpaceManager.shared.spaces {
+            let store = SpaceManager.shared.cookieDataStore(for: space)
+            store.removeData(ofTypes: websiteDataTypes, modifiedSince: date) { }
+        }
 
         // 3. Clear HTTP cookies
         HTTPCookieStorage.shared.removeCookies(since: date)
