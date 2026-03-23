@@ -153,6 +153,9 @@ public struct SettingsView: View {
                             description: "Request sites not to track you",
                             isOn: $doNotTrackEnabled
                         )
+                        
+                        // Fireproof Domains
+                        FireproofDomainsSection()
                     }
                     
                     // Spaces Section
@@ -414,6 +417,9 @@ public struct SettingsView: View {
         // 8. Clear all downloads
         DownloadManager.shared.clearAllDownloads()
 
+        // 9. Clear fireproofed domains
+        FireproofDomains.shared.clearAll()
+
         // 9. Reset to default settings
         defaults.set(true, forKey: "contentBlockerEnabled")
         defaults.set(DarkModeManager.DarkModePreference.system.rawValue, forKey: "darkModePreference")
@@ -555,5 +561,81 @@ struct SpaceCookieSettingsRow: View {
             SpaceManager.shared.spaces[index] = updatedSpace
             SpaceManager.shared.saveSpaces()
         }
+    }
+}
+
+struct FireproofDomainsSection: View {
+    @ObservedObject private var fireproof = FireproofDomains.shared
+    @State private var newDomain = ""
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Image(systemName: "flame.fill")
+                    .foregroundColor(.orange)
+                    .font(.system(size: 20))
+                    .frame(width: 24)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Fireproof Domains")
+                        .font(.system(size: 14, weight: .medium))
+                    Text("Preserve login sessions when clearing data")
+                        .font(.system(size: 11))
+                        .foregroundColor(.secondary)
+                }
+
+                Spacer()
+            }
+
+            // Add domain field
+            HStack(spacing: 8) {
+                TextField("e.g. github.com", text: $newDomain)
+                    .textFieldStyle(.roundedBorder)
+                    .font(.system(size: 12))
+                    .onSubmit { addDomain() }
+
+                Button("Add") { addDomain() }
+                    .buttonStyle(.bordered)
+                    .font(.system(size: 12))
+                    .disabled(newDomain.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+            .padding(.horizontal, 4)
+
+            // Domain list
+            if !fireproof.domains.isEmpty {
+                ForEach(Array(fireproof.domains).sorted(), id: \.self) { domain in
+                    HStack {
+                        Image(systemName: "checkmark.shield.fill")
+                            .foregroundColor(.green)
+                            .font(.system(size: 12))
+                        Text(domain)
+                            .font(.system(size: 12))
+                        Spacer()
+                        Button(action: { fireproof.remove(domain) }) {
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundColor(.secondary)
+                                .font(.system(size: 12))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .padding(.horizontal, 4)
+                }
+            } else {
+                Text("No fireproofed domains. Add sites you want to keep logged in.")
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary)
+                    .padding(.horizontal, 4)
+            }
+        }
+        .padding(12)
+        .background(Color.orange.opacity(0.05))
+        .cornerRadius(8)
+    }
+
+    private func addDomain() {
+        let trimmed = newDomain.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        fireproof.add(trimmed)
+        newDomain = ""
     }
 }

@@ -140,6 +140,10 @@ struct TopToolbar: View {
                 DownloadsButton()
                     .padding(.trailing, 4)
 
+                // Fire Button
+                FireButton()
+                    .padding(.trailing, 4)
+
                 // Control Center Menu Button
                 ControlCenterMenuButton(isExpanded: $isMenuExpanded)
                     .padding(.trailing, AppSpacing.horizontalPadding)
