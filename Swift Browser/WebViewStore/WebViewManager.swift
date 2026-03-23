@@ -24,6 +24,9 @@ public final class WebViewManager: NSObject, ObservableObject, WKNavigationDeleg
     /// Closure called when the web view requests to open a new tab/window (e.g. window.open)
     public var onNewTabRequested: ((WKWebViewConfiguration) -> WKWebView?)?
     
+    /// Closure called when locked tab needs to open URL in new tab
+    public var onLockedTabNavigation: ((URL) -> Void)?
+    
     /// Closure called when the web view requests to close (e.g. window.close)
     public var onCloseRequested: (() -> Void)?
     
@@ -308,6 +311,15 @@ public final class WebViewManager: NSObject, ObservableObject, WKNavigationDeleg
            self.duckPlayer.shouldInterceptNavigation(url: url) {
             
             self.duckPlayer.handleAutoRedirect(url: url)
+            decisionHandler(.cancel)
+            return
+        }
+        
+        // Handle locked tab navigation - open in new tab instead
+        if navigationAction.targetFrame?.isMainFrame == true,
+           let url = navigationAction.request.url,
+           onLockedTabNavigation != nil {
+            onLockedTabNavigation?(url)
             decisionHandler(.cancel)
             return
         }
