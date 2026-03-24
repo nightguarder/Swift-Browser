@@ -93,6 +93,13 @@ The goal of this project is to keep it as lightweight as possible and prefer **s
 - [x] Security Audit - App Transport Security enforcement, sandbox optimization, dark mode injection removal
 - [x] Code Cleanup - WebView container improvements, SwiftUI modernization, UI unification
 
+#### v1.8 - Storage Control:
+
+- [x] Fire Button - Clear all cookies, cache, and site data across all spaces with one click
+- [x] Fireproof Domains - Preserve login sessions for trusted sites when clearing data
+- [x] Auto-Cleanup - Prune website data older than 30 days on launch
+- [x] Reset Fix - Browser reset now actually clears all space data stores
+
 #### v2.0 - Improvements:
 
 - [ ] Extensions Support - Browser extensions framework for privacy extensions
@@ -172,6 +179,9 @@ _Note: The application is not signed! I don't have an Apple developer account.._
 
 - No `telemetry` or acess to `Camera`, `Microphone` etc.
 - Built-in content blocker to limit trackers and third-party tracking
+- Fire button to instantly clear all browsing data with one click
+- Fireproof domains to preserve login sessions for trusted sites
+- Auto-cleanup of website data older than 30 days on launch
 - Design philosophy: minimize data collection and maximize user control
 
 ---
@@ -189,6 +199,8 @@ Comparison between native `Safari` latest (18.0) and `Swift_Browser`. Not accura
 - `Views/` - SwiftUI views for UI components
 - `Managers/`:
   - `ContentBlockerManager.swift` - content-blocking rules
+  - `FireproofDomains.swift` - fireproofed domain list for Fire button
+  - `StorageManager.swift` - fire button burn, auto-cleanup, storage tracking
   - `TabManager.swift` - tab handling and navigation
   - `WebViewManager.swift` - WebKit integration
 - `Models/` - data models for bookmarks, tabs, etc.
