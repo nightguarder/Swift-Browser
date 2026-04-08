@@ -37,7 +37,8 @@ public final class TabManager: ObservableObject {
     }
 
     private let idleDiscardInterval: TimeInterval = 15 * 60
-    private let idleDiscardCheckInterval: TimeInterval = 60
+    private let idleDiscardCheckInterval: TimeInterval = 300 // 5 minutes
+    private static let maxTabs = 50
 
     public init() {
         setupActiveTabObservation()
@@ -52,6 +53,7 @@ public final class TabManager: ObservableObject {
     }
 
     deinit {
+        NotificationCenter.default.removeObserver(self)
         for tab in tabs {
             tab.webView?.teardown()
         }
@@ -94,6 +96,9 @@ public final class TabManager: ObservableObject {
     }
 
     public func addTab(url: String = "", in spaceId: UUID? = nil, isPinned: Bool = false, isLocked: Bool = false) {
+        // Enforce max tab limit to cap WebKit process count
+        guard tabs.count < Self.maxTabs else { return }
+
         let sid = spaceId ?? SpaceManager.shared.activeSpaceId
         let title = url.isEmpty ? "Home" : (url.hasPrefix("swiftbrowser://") ? url.replacingOccurrences(of: "swiftbrowser://", with: "").capitalized : "Loading...")
         let newTab = BrowserTab(title: title, url: url, spaceId: sid, webView: nil, isPinned: isPinned, isLocked: isLocked)
@@ -326,7 +331,7 @@ public final class TabManager: ObservableObject {
                 
                 // Don't discard the top 2 most recently used tabs in that space.
                 // This preserves the Web Inspector and page state if the user switches back soon.
-                guard tabsToKeep.contains(tab.id) else { continue }
+                guard !tabsToKeep.contains(tab.id) else { continue }
                 
                 self.discardTabWebView(tab)
                 discardedCount += 1
@@ -415,11 +420,11 @@ public final class TabManager: ObservableObject {
         // Preserve isPinned but never duplicate isLocked
         let newTab = BrowserTab(title: tab.title, url: tab.url, spaceId: tab.spaceId, webView: webView, isPinned: tab.isPinned, isLocked: false)
         setupManagerCallbacks(webView, for: newTab)
-        CookiePersistenceManager.shared.injectCookiesIntoDataStore(for: space, dataStore: dataStore)
-        
-        // Load same content if available
-        if !tab.url.isEmpty {
-            webView.load(tab.url)
+        CookiePersistenceManager.shared.injectCookiesIntoDataStore(for: space, dataStore: dataStore) {
+            // Load same content only after cookies are injected
+            if !tab.url.isEmpty {
+                webView.load(tab.url)
+            }
         }
         
         withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
@@ -569,13 +574,14 @@ public final class TabManager: ObservableObject {
             let manager = WebViewManager(dataStore: dataStore, isPrivateSpace: space.isPrivate, spaceId: space.id)
             setupManagerCallbacks(manager, for: tab)
             tab.webView = manager
-            CookiePersistenceManager.shared.injectCookiesIntoDataStore(for: space, dataStore: dataStore)
-            manager.load(tab.url)
+            CookiePersistenceManager.shared.injectCookiesIntoDataStore(for: space, dataStore: dataStore) {
+                manager.load(tab.url)
+            }
         }
     }
     
     @discardableResult
-    private func ensureWebView(for tab: BrowserTab) -> WebViewManager {
+    private func ensureWebView(for tab: BrowserTab, urlToLoad: String? = nil) -> WebViewManager {
         if let manager = tab.webView {
             return manager
         }
@@ -585,7 +591,11 @@ public final class TabManager: ObservableObject {
         let manager = WebViewManager(dataStore: dataStore, isPrivateSpace: space.isPrivate, spaceId: space.id)
         setupManagerCallbacks(manager, for: tab)
         tab.webView = manager
-        CookiePersistenceManager.shared.injectCookiesIntoDataStore(for: space, dataStore: dataStore)
+        CookiePersistenceManager.shared.injectCookiesIntoDataStore(for: space, dataStore: dataStore) {
+            if let url = urlToLoad {
+                manager.load(url)
+            }
+        }
         return manager
     }
 

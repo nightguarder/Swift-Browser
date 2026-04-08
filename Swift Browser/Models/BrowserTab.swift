@@ -24,7 +24,15 @@ public final class BrowserTab: Identifiable, ObservableObject {
     
     /// The dedicated web view manager for this tab.
     /// When nil, this tab is "discarded" and holds only lightweight state.
-    @Published public var webView: WebViewManager?
+    @Published public var webView: WebViewManager? {
+        didSet {
+            // Clear stale subscriptions when webView is released (tab discard)
+            if webView == nil && oldValue != nil {
+                cancellables.removeAll()
+                setupBindings()
+            }
+        }
+    }
 
     /// Last time this tab was foregrounded or explicitly used.
     /// Used to discard idle background tabs.

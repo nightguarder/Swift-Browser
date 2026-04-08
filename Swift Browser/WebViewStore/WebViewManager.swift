@@ -196,14 +196,21 @@ public final class WebViewManager: NSObject, ObservableObject, WKNavigationDeleg
     }
 
     deinit {
+        guard !isTornDown else { return }
+
         let webView = self.webView
+        let localCancellables = self.cancellables
+
         if Thread.isMainThread {
-            Self.teardownWebView(webView, cancellables: &cancellables, isTornDown: &isTornDown)
+            isTornDown = true
+            cancellables.removeAll()
+            Self.teardownWebView(webView)
         } else {
-            DispatchQueue.main.async {
-                var empty = Set<AnyCancellable>()
-                var tornDown = false
-                Self.teardownWebView(webView, cancellables: &empty, isTornDown: &tornDown)
+            // Capture webView (strong ref keeps process alive) so we can
+            // safely touch webView properties from the main thread.
+            DispatchQueue.main.async { [webView = self.webView] in
+                for c in localCancellables { c.cancel() }
+                Self.teardownWebView(webView)
             }
         }
     }
@@ -216,21 +223,19 @@ public final class WebViewManager: NSObject, ObservableObject, WKNavigationDeleg
             return
         }
 
-        stopMediaPlaybackMonitoring()
-        onMediaPlaybackStateChanged?(false) // Notify that media stopped
-        
-        // Detach DuckPlayer KVO observer
-        duckPlayer.detach()
-        
-        Self.teardownWebView(webView, cancellables: &cancellables, isTornDown: &isTornDown)
-    }
-
-    private static func teardownWebView(_ webView: WKWebView, cancellables: inout Set<AnyCancellable>, isTornDown: inout Bool) {
         guard !isTornDown else { return }
         isTornDown = true
 
-        cancellables.removeAll()
+        stopMediaPlaybackMonitoring()
+        onMediaPlaybackStateChanged?(false)
 
+        duckPlayer.detach()
+
+        cancellables.removeAll()
+        Self.teardownWebView(webView)
+    }
+
+    private static func teardownWebView(_ webView: WKWebView) {
         webView.stopLoading()
         webView.navigationDelegate = nil
         webView.uiDelegate = nil
@@ -239,7 +244,6 @@ public final class WebViewManager: NSObject, ObservableObject, WKNavigationDeleg
         let ucc = webView.configuration.userContentController
         ucc.removeScriptMessageHandler(forName: "logger")
 
-        // Detach the web content process as aggressively as possible.
         if let blankURL = URL(string: "about:blank") {
             webView.load(URLRequest(url: blankURL))
         }
