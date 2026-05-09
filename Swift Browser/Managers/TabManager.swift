@@ -505,10 +505,6 @@ public final class TabManager: ObservableObject {
             return
         }
         
-        // Remove focus from all elements by injecting script
-        let webViewManager = ensureWebView(for: currentTab)
-        webViewManager.webView.evaluateJavaScript("document.activeElement.blur()") { _, _ in }
-
         // If input looks like a URL (contains a dot or starts with http)
         if input.starts(with: "http://") || input.starts(with: "https://") {
             // valid full URL
@@ -519,8 +515,11 @@ public final class TabManager: ObservableObject {
             let query = input.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? input
             input = "https://duckduckgo.com/?q=\(query)"
         }
+        
+        // Remove focus from all elements by injecting script
+        let webViewManager = ensureWebView(for: currentTab, urlToLoad: input)
+        webViewManager.webView.evaluateJavaScript("document.activeElement.blur()") { _, _ in }
 
-        webViewManager.load(input)
         currentTab.url = input
         currentTab.lastUsedAt = Date()
 
@@ -583,6 +582,9 @@ public final class TabManager: ObservableObject {
     @discardableResult
     private func ensureWebView(for tab: BrowserTab, urlToLoad: String? = nil) -> WebViewManager {
         if let manager = tab.webView {
+            if let url = urlToLoad {
+                manager.load(url)
+            }
             return manager
         }
 
@@ -610,11 +612,12 @@ public final class TabManager: ObservableObject {
         
         // Handle locked tab navigation - open in new tab
         manager.onLockedTabNavigation = { [weak self] url in
-            guard let self = self else { return }
-            guard tab.isLocked else { return }
+            guard let self = self else { return false }
+            guard tab.isLocked else { return false }
             // Create new tab with the URL
             let urlString = url.absoluteString
             self.addTab(url: urlString, in: tab.spaceId)
+            return true
         }
         
         // Monitor media playback state changes

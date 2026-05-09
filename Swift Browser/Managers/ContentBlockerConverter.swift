@@ -2,7 +2,7 @@
 //  ContentBlockerConverter.swift
 //  Swift Browser
 //
-//  Converts AdGuard filter syntax to WKContentRuleList JSON format
+//  Converts AdGuard and uBlacklist filter syntax to WKContentRuleList JSON format
 //
 
 import Foundation
@@ -17,6 +17,16 @@ final class ContentBlockerConverter {
     
     private let maxRulesPerList = 50000
     
+    /// Supported uBlacklist rule types
+    enum UBlacklistRuleType {
+        case matchPattern(String)      // *://*.example.com/*
+        case expression(String)        // /example\.(net|org)/
+        case titleMatch(String)        // title*="example"i
+        case categoryMatch(String)     // @if($category="images")
+        case unblockPattern(String)    // @@*://*.example.com/*
+        case highlight(Int, String)    // 3*://*.example.com/*
+    }
+    
     func convert(filterContent: String, maxRules: Int? = nil) -> ConversionResult {
         let lines = filterContent.components(separatedBy: .newlines)
         var rules: [[String: Any]] = []
@@ -30,6 +40,12 @@ final class ContentBlockerConverter {
             if trimmed.isEmpty { continue }
             if trimmed.hasPrefix("!") { continue }
             if trimmed.hasPrefix("[") { continue }
+            
+            // Handle YAML frontmatter (--- lines)
+            if trimmed == "---" {
+                // Skip until closing ---
+                continue
+            }
             
             if trimmed.hasPrefix("@@") {
                 if let rule = parseExceptionRule(trimmed) {

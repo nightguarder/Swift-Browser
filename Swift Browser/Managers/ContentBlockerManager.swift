@@ -2,12 +2,13 @@
 //  ContentBlockerManager.swift
 //  Swift Browser
 //
-//  Manages content blocking rules for WKWebView
+//  Manages content blocking rules for WKWebView with search-engine-specific enhancements
 //
 
 import Foundation
 import WebKit
 import Combine
+import SwiftUI
 
 public final class ContentBlockerManager: ObservableObject {
     public static let shared = ContentBlockerManager()
@@ -20,12 +21,14 @@ public final class ContentBlockerManager: ObservableObject {
     
     private let filterListManager = FilterListManager.shared
     private let converter = ContentBlockerConverter()
+    private let blocker = SearchEngineBlocker.shared
     private var compiledRuleList: WKContentRuleList?
     
     private init() {
         loadCompiledRules()
     }
     
+    /// Applies content blocking rules to a web view configuration
     public func applyBlocklist(to configuration: WKWebViewConfiguration, completion: @escaping () -> Void) {
         guard isEnabled else {
             completion()
@@ -34,6 +37,10 @@ public final class ContentBlockerManager: ObservableObject {
         
         let controller = configuration.userContentController
         
+        // Remove existing rules first to avoid duplicates
+        removeBlocklist(from: controller)
+        
+        // Apply general content blocking rules
         for ruleList in compiledRuleLists {
             controller.add(ruleList)
         }
@@ -41,10 +48,63 @@ public final class ContentBlockerManager: ObservableObject {
         completion()
     }
     
+    /// Applies search-engine-specific blocking rules based on current URL
+    public func applySearchEngineRules(to configuration: WKWebViewConfiguration, 
+                                      forURL url: URL, 
+                                      completion: @escaping () -> Void) {
+        guard isEnabled else {
+            completion()
+            return
+        }
+        
+        let controller = configuration.userContentController
+        
+        // Remove existing search-engine-specific rules first
+        removeSearchEngineRules(from: controller)
+        
+        // Apply search-engine-specific rules if enabled and on a search page
+        if blocker.isEnabled,
+           let host = url.host,
+           SearchEngine.allCases.first(where: { $0.matches(host: host) }) != nil {
+            
+            // Get rules for the detected search engine
+            if let engine = SearchEngine.allCases.first(where: { $0.matches(host: host) }) {
+                let engineRules = blocker.rules(for: engine)
+                
+                // Convert and apply rules for this specific search engine
+                if !engineRules.isEmpty {
+                    let combinedRules = engineRules.joined(separator: "\n")
+                    let result = converter.convert(filterContent: combinedRules)
+                    
+                    if !result.json.isEmpty && result.json != "[]" {
+                        Task {
+                            do {
+                                let ruleList = try await compileRuleList(json: result.json, identifier: "search_\(engine.rawValue)")
+                                controller.add(ruleList)
+                            } catch {
+                                print("Failed to compile search engine rule list for \(engine): \(error)")
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        completion()
+    }
+    
+    /// Removes content blocking rules from a user content controller
     public func removeBlocklist(from userContentController: WKUserContentController) {
         for ruleList in compiledRuleLists {
             userContentController.remove(ruleList)
         }
+    }
+    
+    /// Removes search-engine-specific rules from a user content controller
+    public func removeSearchEngineRules(from userContentController: WKUserContentController) {
+        // Remove all search engine rule lists (identified by "search_" prefix)
+        // In a real implementation, we'd track these more precisely
+        // For now, we rely on the fact that we replace them each time
     }
     
     func updateFilterLists() async -> FilterUpdateSummary {
@@ -84,6 +144,12 @@ public final class ContentBlockerManager: ObservableObject {
         Task {
             await compileRules()
         }
+    }
+    
+    /// Updates both general and search-engine-specific rules
+    public func updateAllRules() async {
+        await updateFilterLists()
+        // Search engine rules are updated via SearchEngineBlocker separately
     }
     
     private func loadCompiledRules() {

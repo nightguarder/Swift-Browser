@@ -130,33 +130,95 @@ public struct SettingsView: View {
                         }
                     }
                     
-                    // Privacy & Security Section
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Privacy & Security")
-                            .font(.system(size: 16, weight: .bold))
-                            .padding(.bottom, 4)
-                        
-                        // Content Blocker Toggle
-                        settingsRow(
-                            icon: "shield.lefthalf.fill",
-                            color: .green,
-                            title: "Content Blocker",
-                            description: "Block ads and trackers",
-                            isOn: $contentBlockerEnabled
-                        )
-                        
-                        // Do Not Track Toggle
-                        settingsRow(
-                            icon: "eye.slash.fill",
-                            color: .blue,
-                            title: "Do Not Track",
-                            description: "Request sites not to track you",
-                            isOn: $doNotTrackEnabled
-                        )
-                        
-                        // Fireproof Domains
-                        FireproofDomainsSection()
-                    }
+                     // Privacy & Security Section
+                     VStack(alignment: .leading, spacing: 12) {
+                         Text("Privacy & Security")
+                             .font(.system(size: 16, weight: .bold))
+                             .padding(.bottom, 4)
+                         
+                         // Content Blocker Toggle
+                         settingsRow(
+                             icon: "shield.lefthalf.fill",
+                             color: .green,
+                             title: "Content Blocker",
+                             description: "Block ads and trackers",
+                             isOn: $contentBlockerEnabled
+                         )
+                         
+                         // Do Not Track Toggle
+                         settingsRow(
+                             icon: "eye.slash.fill",
+                             color: .blue,
+                             title: "Do Not Track",
+                             description: "Request sites not to track you",
+                             isOn: $doNotTrackEnabled
+                         )
+                         
+                          // Search Engine Blocker Toggle
+                          settingsRow(
+                              icon: "rectangle.stack.badge.minus",
+                              color: .purple,
+                              title: "Search Engine Blocker",
+                              description: "Block unwanted sites in search results",
+                              isOn: Binding(
+                                  get: { SearchEngineBlocker.shared.isEnabled },
+                                  set: { SearchEngineBlocker.shared.setEnabled($0) }
+                              )
+                          )
+                          
+                          // uBlocklist Subscriptions
+                          VStack(alignment: .leading, spacing: 8) {
+                              HStack {
+                                  Image(systemName: "list.bullet.rectangle")
+                                      .foregroundColor(.purple)
+                                      .font(.system(size: 20))
+                                      .frame(width: 24)
+                                  Text("uBlocklist Subscriptions")
+                                      .font(.system(size: 14, weight: .medium))
+                              }
+                              
+                              if SearchEngineBlocker.shared.subscriptions.isEmpty {
+                                  Text("No subscriptions added")
+                                      .font(.system(size: 11))
+                                      .foregroundColor(.secondary)
+                                      .padding(.leading, 34)
+                              } else {
+                                  ForEach(SearchEngineBlocker.shared.subscriptions) { sub in
+                                      HStack {
+                                          Text(sub.name)
+                                              .font(.system(size: 12))
+                                          Spacer()
+                                          Button(action: {
+                                              SearchEngineBlocker.shared.removeSubscription(sub)
+                                          }) {
+                                              Image(systemName: "minus.circle")
+                                                  .foregroundColor(.red)
+                                          }
+                                          .buttonStyle(.plain)
+                                      }
+                                      .padding(.leading, 34)
+                                  }
+                              }
+                              
+                              Button(action: {
+                                  if let url = URL(string: "https://raw.githubusercontent.com/nickcernis/stop-the-noise/master/filters.txt") {
+                                      SearchEngineBlocker.shared.addSubscription(url: url, name: "Noise Filter")
+                                  }
+                              }) {
+                                  HStack {
+                                      Image(systemName: "plus")
+                                      Text("Add Subscription")
+                                  }
+                                  .font(.system(size: 12))
+                              }
+                              .padding(.leading, 34)
+                              .padding(.top, 4)
+                          }
+                          .padding(.vertical, 8)
+                          
+                          // Fireproof Domains
+                          FireproofDomainsSection()
+                     }
                     
                     // Spaces Section
                     VStack(alignment: .leading, spacing: 12) {
@@ -637,5 +699,10 @@ struct FireproofDomainsSection: View {
         guard !trimmed.isEmpty else { return }
         fireproof.add(trimmed)
         newDomain = ""
+    }
+    
+    private func addUBlocklistSubscription() {
+        guard let url = URL(string: "https://raw.githubusercontent.com/nickcernis/stop-the-noise/master/filters.txt") else { return }
+        SearchEngineBlocker.shared.addSubscription(url: url, name: "Noise Filter")
     }
 }

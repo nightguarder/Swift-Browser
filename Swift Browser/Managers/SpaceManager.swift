@@ -12,7 +12,7 @@ public class SpaceManager: ObservableObject {
     private let hasInitializedKey = "com.swiftbrowser.hasInitializedEncryption"
     private var cookieStores: [UUID: WKWebsiteDataStore] = [:]
     
-    public let processPool = WKProcessPool()
+    // WKProcessPool is deprecated - no longer needed as multiple instances have no effect
     
     private init() {
         self.activeSpaceId = UUID()

@@ -24,8 +24,8 @@ public final class WebViewManager: NSObject, ObservableObject, WKNavigationDeleg
     /// Closure called when the web view requests to open a new tab/window (e.g. window.open)
     public var onNewTabRequested: ((WKWebViewConfiguration) -> WKWebView?)?
     
-    /// Closure called when locked tab needs to open URL in new tab
-    public var onLockedTabNavigation: ((URL) -> Void)?
+    /// Closure called when locked tab needs to open URL in new tab. Return true if handled.
+    public var onLockedTabNavigation: ((URL) -> Bool)?
     
     /// Closure called when the web view requests to close (e.g. window.close)
     public var onCloseRequested: (() -> Void)?
@@ -52,7 +52,7 @@ public final class WebViewManager: NSObject, ObservableObject, WKNavigationDeleg
 
         let config = configuration ?? WKWebViewConfiguration()
         config.websiteDataStore = dataStore
-        config.processPool = SpaceManager.shared.processPool
+        // processPool deprecated in macOS 12.0 - no longer needed
         
         // Use applicationNameForUserAgent to allow WebKit to build a perfect Safari-like UA
         config.applicationNameForUserAgent = "Version/18.0 Safari/605.1.15"
@@ -322,8 +322,7 @@ public final class WebViewManager: NSObject, ObservableObject, WKNavigationDeleg
         // Handle locked tab navigation - open in new tab instead
         if navigationAction.targetFrame?.isMainFrame == true,
            let url = navigationAction.request.url,
-           onLockedTabNavigation != nil {
-            onLockedTabNavigation?(url)
+           onLockedTabNavigation?(url) == true {
             decisionHandler(.cancel)
             return
         }
@@ -431,6 +430,11 @@ public final class WebViewManager: NSObject, ObservableObject, WKNavigationDeleg
         let isEnabled = UserDefaults.standard.bool(forKey: "contentBlockerEnabled")
         if isEnabled {
             ContentBlockerManager.shared.applyBlocklist(to: webView.configuration) {}
+            
+            // Also apply search-engine-specific rules if we have a current URL
+            if let url = webView.url {
+                ContentBlockerManager.shared.applySearchEngineRules(to: webView.configuration, forURL: url) {}
+            }
         }
     }
 

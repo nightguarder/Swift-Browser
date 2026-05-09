@@ -4,7 +4,7 @@
 ![Swift](https://img.shields.io/badge/Swift-5.x-blue.svg)
 ![Platform](https://img.shields.io/badge/Platform-macOS-brightgreen.svg)
 
-Swift Browser is a privacy-focused macOS browser built with SwiftUI and WebKit. It aims to provide a lightweight, fast, and user-friendly web experience with a strong emphasis on protecting user privacy.
+**NOTE:** `WKProcessPool` is deprecated; new instances have no effect. See documentation: https://developer.apple.com/documentation/webkit/wkprocesspool
 
 ## Docs
 
@@ -100,6 +100,16 @@ The goal of this project is to keep it as lightweight as possible and prefer **s
 - [x] Auto-Cleanup - Prune website data older than 30 days on launch
 - [x] Reset Fix - Browser reset now actually clears all space data stores
 
+#### v1.9 - Stability & Performance:
+
+- [x] Tab Discarding Logic Fix - Fixed inverted condition causing memory bloat
+- [x] Idle Discard Interval - Reduced from 1 min to 5 min for better CPU efficiency
+- [x] Tab Limit - Added max 50 tabs to prevent unbounded WebKit process growth
+- [x] Async Cookie Injection - Fixed session loss on tab restore/duplicate
+- [x] Stale Subscription Cleanup - Prevent memory leaks when WebView discarded
+- [x] Double-Free Prevention - Improved teardown guards in WebViewManager
+- [x] NotificationCenter Cleanup - Removed observer in TabManager.deinit
+
 #### v2.0 - Improvements:
 
 - [ ] Extensions Support - Browser extensions framework for privacy extensions
@@ -153,14 +163,30 @@ You can build and run the project from the terminal without opening Xcode:
 # 0. (Optional) Ensure Command Line Tools are set
 sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
 
-# 1. Build the app
-xcodebuild -project "Swift Browser.xcodeproj" -scheme "Swift Browser" -configuration Debug build
+# 1. Build, copy to /Applications, and ad-hoc codesign
+./build.sh
 
-# 2. Run the app
-open ~/Library/Developer/Xcode/DerivedData/Swift_Browser-*/Build/Products/Debug/Swift\ Browser.app
+# 2. Or manually:
+xcodebuild -project "Swift Browser.xcodeproj" -scheme "Swift Browser" -configuration Debug build
+cp -R ~/Library/Developer/Xcode/DerivedData/Swift_Browser-*/Build/Products/Debug/Swift\ Browser.app /Applications/
+codesign --force --deep --sign - /Applications/Swift\ Browser.app
 ```
 
 **Note:** The exact DerivedData path may vary slightly based on the hash suffix. If the wildcard doesn't work, check `~/Library/Developer/Xcode/DerivedData/` for the exact folder name.
+
+---
+
+## Troubleshooting
+
+### Session Reset
+
+If you end up with duplicate locked/pinned tabs that cannot be closed, delete the session file and relaunch:
+
+```bash
+rm ~/Library/Application\ Support/SwiftBrowser/session.json
+```
+
+The app will recreate a fresh set of locked Home tabs on next launch.
 
 ---
 
