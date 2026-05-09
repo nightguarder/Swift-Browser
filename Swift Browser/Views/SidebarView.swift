@@ -210,6 +210,9 @@ public struct SidebarView: View {
                             },
                             onMove: { sourceID in
                                 handleTabMove(sourceID: sourceID, targetID: tab.id, spaceTabs: spaceTabs)
+                            },
+                            onPin: {
+                                tabManager.togglePinCurrentTab()
                             }
                         )
                     }
@@ -236,6 +239,9 @@ public struct SidebarView: View {
                             },
                             onDuplicate: {
                                 tabManager.duplicate(tab)
+                            },
+                            onPin: {
+                                tabManager.togglePinCurrentTab()
                             }
                         )
                     }
@@ -273,6 +279,7 @@ struct DraggableTabRow: View {
     let onSelect: () -> Void
     let onDuplicate: () -> Void
     let onMove: (UUID) -> Void
+    let onPin: () -> Void
     
     @State private var isHovered = false
     
@@ -349,6 +356,7 @@ struct DraggableTabRow: View {
         .buttonStyle(.plain)
         .contextMenu {
             Button("Duplicate Tab", action: onDuplicate)
+            Button(tab.isPinned ? "Unpin Tab" : "Pin Tab", action: onPin)
             Button("Close Tab", action: onClose)
         }
         .onDrag {
@@ -381,8 +389,9 @@ public struct SidebarTabButton: View {
     var onClose: () -> Void
     var onSelect: () -> Void
     var onDuplicate: () -> Void
+    var onPin: () -> Void
     
-    public init(tab: BrowserTab, isCurrent: Bool, isSidebarHovered: Bool, hoveredTabId: Binding<UUID?>, onClose: @escaping () -> Void, onSelect: @escaping () -> Void, onDuplicate: @escaping () -> Void) {
+    public init(tab: BrowserTab, isCurrent: Bool, isSidebarHovered: Bool, hoveredTabId: Binding<UUID?>, onClose: @escaping () -> Void, onSelect: @escaping () -> Void, onDuplicate: @escaping () -> Void, onPin: @escaping () -> Void) {
         self.tab = tab
         self.isCurrent = isCurrent
         self.isSidebarHovered = isSidebarHovered
@@ -390,6 +399,7 @@ public struct SidebarTabButton: View {
         self.onClose = onClose
         self.onSelect = onSelect
         self.onDuplicate = onDuplicate
+        self.onPin = onPin
     }
     
     public var body: some View {
@@ -434,6 +444,7 @@ public struct SidebarTabButton: View {
         .buttonStyle(.plain)
         .contextMenu {
             Button("Duplicate Tab", action: onDuplicate)
+            Button(tab.isPinned ? "Unpin Tab" : "Pin Tab", action: onPin)
             Button("Close Tab", action: onClose)
         }
     }

@@ -23,6 +23,8 @@ The documentation is versioned to track the evolution of the browser's features 
 - [**v1.2 - DuckPlayer**](v1.2%20-%20DuckPlayer/DuckPlayer_Implementation.md): YouTube background playback support via DuckPlayer.
 - [**v1.3 - Keyboard & Sidebar Drag**](v1.3%20-%20Keyboard%20&%20Sidebar%20Drag/Keyboard_Scrolling_Fix.md): Fixed keyboard scrolling delay, added tab drag and drop in sidebar.
 - [**v1.4 - Cookies Security**](v1.4%20-%20Cookies%20Security/Cookies_Security.md): Secure cookie persistence with encryption, Keychain integration, Block All Cookies per space.
+- [**v1.8 - Fire Button & Storage Control**](v1.8%20-%20Fire%20Button%20&%20Storage%20Control/Fire_Button_Storage_Control.md): Fire button, fireproof domains, storage cleanup.
+- [**v1.9 - Stability & Performance**](v1.9%20-%20Stability%20&%20Performance/Stability_Performance.md): Critical tab discarding bug fix, performance optimizations, async cookie injection.
 
 ## Philosophy
 

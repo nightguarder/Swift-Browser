@@ -130,30 +130,95 @@ public struct SettingsView: View {
                         }
                     }
                     
-                    // Privacy & Security Section
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Privacy & Security")
-                            .font(.system(size: 16, weight: .bold))
-                            .padding(.bottom, 4)
-                        
-                        // Content Blocker Toggle
-                        settingsRow(
-                            icon: "shield.lefthalf.fill",
-                            color: .green,
-                            title: "Content Blocker",
-                            description: "Block ads and trackers",
-                            isOn: $contentBlockerEnabled
-                        )
-                        
-                        // Do Not Track Toggle
-                        settingsRow(
-                            icon: "eye.slash.fill",
-                            color: .blue,
-                            title: "Do Not Track",
-                            description: "Request sites not to track you",
-                            isOn: $doNotTrackEnabled
-                        )
-                    }
+                     // Privacy & Security Section
+                     VStack(alignment: .leading, spacing: 12) {
+                         Text("Privacy & Security")
+                             .font(.system(size: 16, weight: .bold))
+                             .padding(.bottom, 4)
+                         
+                         // Content Blocker Toggle
+                         settingsRow(
+                             icon: "shield.lefthalf.fill",
+                             color: .green,
+                             title: "Content Blocker",
+                             description: "Block ads and trackers",
+                             isOn: $contentBlockerEnabled
+                         )
+                         
+                         // Do Not Track Toggle
+                         settingsRow(
+                             icon: "eye.slash.fill",
+                             color: .blue,
+                             title: "Do Not Track",
+                             description: "Request sites not to track you",
+                             isOn: $doNotTrackEnabled
+                         )
+                         
+                          // Search Engine Blocker Toggle
+                          settingsRow(
+                              icon: "rectangle.stack.badge.minus",
+                              color: .purple,
+                              title: "Search Engine Blocker",
+                              description: "Block unwanted sites in search results",
+                              isOn: Binding(
+                                  get: { SearchEngineBlocker.shared.isEnabled },
+                                  set: { SearchEngineBlocker.shared.setEnabled($0) }
+                              )
+                          )
+                          
+                          // uBlocklist Subscriptions
+                          VStack(alignment: .leading, spacing: 8) {
+                              HStack {
+                                  Image(systemName: "list.bullet.rectangle")
+                                      .foregroundColor(.purple)
+                                      .font(.system(size: 20))
+                                      .frame(width: 24)
+                                  Text("uBlocklist Subscriptions")
+                                      .font(.system(size: 14, weight: .medium))
+                              }
+                              
+                              if SearchEngineBlocker.shared.subscriptions.isEmpty {
+                                  Text("No subscriptions added")
+                                      .font(.system(size: 11))
+                                      .foregroundColor(.secondary)
+                                      .padding(.leading, 34)
+                              } else {
+                                  ForEach(SearchEngineBlocker.shared.subscriptions) { sub in
+                                      HStack {
+                                          Text(sub.name)
+                                              .font(.system(size: 12))
+                                          Spacer()
+                                          Button(action: {
+                                              SearchEngineBlocker.shared.removeSubscription(sub)
+                                          }) {
+                                              Image(systemName: "minus.circle")
+                                                  .foregroundColor(.red)
+                                          }
+                                          .buttonStyle(.plain)
+                                      }
+                                      .padding(.leading, 34)
+                                  }
+                              }
+                              
+                              Button(action: {
+                                  if let url = URL(string: "https://raw.githubusercontent.com/nickcernis/stop-the-noise/master/filters.txt") {
+                                      SearchEngineBlocker.shared.addSubscription(url: url, name: "Noise Filter")
+                                  }
+                              }) {
+                                  HStack {
+                                      Image(systemName: "plus")
+                                      Text("Add Subscription")
+                                  }
+                                  .font(.system(size: 12))
+                              }
+                              .padding(.leading, 34)
+                              .padding(.top, 4)
+                          }
+                          .padding(.vertical, 8)
+                          
+                          // Fireproof Domains
+                          FireproofDomainsSection()
+                     }
                     
                     // Spaces Section
                     VStack(alignment: .leading, spacing: 12) {
@@ -388,10 +453,13 @@ public struct SettingsView: View {
         // 1. Clear all UserDefaults
         defaults.dictionaryRepresentation().keys.filter { $0.hasPrefix(bundleID) || appSpecificKeys.contains($0) }.forEach { defaults.removeObject(forKey: $0) }
 
-        // 2. Clear website data (cookies, cache, local storage, etc.)
+        // 2. Clear website data for ALL space data stores (not just .default())
         let websiteDataTypes = WKWebsiteDataStore.allWebsiteDataTypes()
         let date = Date(timeIntervalSince1970: 0)
-        WKWebsiteDataStore.default().removeData(ofTypes: websiteDataTypes, modifiedSince: date) { }
+        for space in SpaceManager.shared.spaces {
+            let store = SpaceManager.shared.cookieDataStore(for: space)
+            store.removeData(ofTypes: websiteDataTypes, modifiedSince: date) { }
+        }
 
         // 3. Clear HTTP cookies
         HTTPCookieStorage.shared.removeCookies(since: date)
@@ -410,6 +478,9 @@ public struct SettingsView: View {
 
         // 8. Clear all downloads
         DownloadManager.shared.clearAllDownloads()
+
+        // 9. Clear fireproofed domains
+        FireproofDomains.shared.clearAll()
 
         // 9. Reset to default settings
         defaults.set(true, forKey: "contentBlockerEnabled")
@@ -552,5 +623,86 @@ struct SpaceCookieSettingsRow: View {
             SpaceManager.shared.spaces[index] = updatedSpace
             SpaceManager.shared.saveSpaces()
         }
+    }
+}
+
+struct FireproofDomainsSection: View {
+    @ObservedObject private var fireproof = FireproofDomains.shared
+    @State private var newDomain = ""
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Image(systemName: "flame.fill")
+                    .foregroundColor(.orange)
+                    .font(.system(size: 20))
+                    .frame(width: 24)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Fireproof Domains")
+                        .font(.system(size: 14, weight: .medium))
+                    Text("Preserve login sessions when clearing data")
+                        .font(.system(size: 11))
+                        .foregroundColor(.secondary)
+                }
+
+                Spacer()
+            }
+
+            // Add domain field
+            HStack(spacing: 8) {
+                TextField("e.g. github.com", text: $newDomain)
+                    .textFieldStyle(.roundedBorder)
+                    .font(.system(size: 12))
+                    .onSubmit { addDomain() }
+
+                Button("Add") { addDomain() }
+                    .buttonStyle(.bordered)
+                    .font(.system(size: 12))
+                    .disabled(newDomain.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+            .padding(.horizontal, 4)
+
+            // Domain list
+            if !fireproof.domains.isEmpty {
+                ForEach(Array(fireproof.domains).sorted(), id: \.self) { domain in
+                    HStack {
+                        Image(systemName: "checkmark.shield.fill")
+                            .foregroundColor(.green)
+                            .font(.system(size: 12))
+                        Text(domain)
+                            .font(.system(size: 12))
+                        Spacer()
+                        Button(action: { fireproof.remove(domain) }) {
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundColor(.secondary)
+                                .font(.system(size: 12))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .padding(.horizontal, 4)
+                }
+            } else {
+                Text("No fireproofed domains. Add sites you want to keep logged in.")
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary)
+                    .padding(.horizontal, 4)
+            }
+        }
+        .padding(12)
+        .background(Color.orange.opacity(0.05))
+        .cornerRadius(8)
+    }
+
+    private func addDomain() {
+        let trimmed = newDomain.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        fireproof.add(trimmed)
+        newDomain = ""
+    }
+    
+    private func addUBlocklistSubscription() {
+        guard let url = URL(string: "https://raw.githubusercontent.com/nickcernis/stop-the-noise/master/filters.txt") else { return }
+        SearchEngineBlocker.shared.addSubscription(url: url, name: "Noise Filter")
     }
 }

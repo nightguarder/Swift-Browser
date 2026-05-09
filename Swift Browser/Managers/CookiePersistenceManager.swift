@@ -232,8 +232,11 @@ public final class CookiePersistenceManager: ObservableObject {
         }
     }
     
-    public func injectCookiesIntoDataStore(for space: Space, dataStore: WKWebsiteDataStore) {
-        guard !space.isPrivate && !space.blockAllCookies else { return }
+    public func injectCookiesIntoDataStore(for space: Space, dataStore: WKWebsiteDataStore, completion: (() -> Void)? = nil) {
+        guard !space.isPrivate && !space.blockAllCookies else {
+            completion?()
+            return
+        }
         
         if let cookies = cookieCache[space.id], !cookies.isEmpty {
             let group = DispatchGroup()
@@ -244,6 +247,12 @@ public final class CookiePersistenceManager: ObservableObject {
                     group.leave()
                 }
             }
+            
+            group.notify(queue: .main) {
+                completion?()
+            }
+        } else {
+            completion?()
         }
     }
     

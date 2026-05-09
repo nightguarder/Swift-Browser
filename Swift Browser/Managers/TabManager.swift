@@ -37,20 +37,23 @@ public final class TabManager: ObservableObject {
     }
 
     private let idleDiscardInterval: TimeInterval = 15 * 60
-    private let idleDiscardCheckInterval: TimeInterval = 60
+    private let idleDiscardCheckInterval: TimeInterval = 300 // 5 minutes
+    private static let maxTabs = 50
 
     public init() {
         setupActiveTabObservation()
         configureIdleDiscardTimer()
         setupSessionPersistence()
         
-        // Try to restore session, otherwise add default tab
+        // Try to restore session, otherwise add default locked Home tab
         if !restoreSession() {
-            addTab() // start with one tab open
+            // Create locked Home tab on first launch
+            addTab(isPinned: true, isLocked: true)
         }
     }
 
     deinit {
+        NotificationCenter.default.removeObserver(self)
         for tab in tabs {
             tab.webView?.teardown()
         }
@@ -93,6 +96,9 @@ public final class TabManager: ObservableObject {
     }
 
     public func addTab(url: String = "", in spaceId: UUID? = nil, isPinned: Bool = false, isLocked: Bool = false) {
+        // Enforce max tab limit to cap WebKit process count
+        guard tabs.count < Self.maxTabs else { return }
+
         let sid = spaceId ?? SpaceManager.shared.activeSpaceId
         let title = url.isEmpty ? "Home" : (url.hasPrefix("swiftbrowser://") ? url.replacingOccurrences(of: "swiftbrowser://", with: "").capitalized : "Loading...")
         let newTab = BrowserTab(title: title, url: url, spaceId: sid, webView: nil, isPinned: isPinned, isLocked: isLocked)
@@ -281,14 +287,8 @@ public final class TabManager: ObservableObject {
         if let lastUsed = spaceTabs.max(by: { $0.lastUsedAt < $1.lastUsedAt }) {
             switchToTab(lastUsed)
         } else {
-            // Only create a locked Home tab if this space has NEVER had any tabs
-            // Check if this space existed before (has any history)
-            let spaceHasHistory = !tabs.isEmpty && tabs.contains { $0.spaceId == spaceId }
-            if !spaceHasHistory {
-                addTab(in: spaceId, isPinned: true, isLocked: true)
-            } else {
-                addTab(in: spaceId)
-            }
+            // Create locked Home tab for spaces with no tabs
+            addTab(in: spaceId, isPinned: true, isLocked: true)
         }
         
         // Background space discarding: Schedule discarding of previous space WebViews after delay
@@ -331,7 +331,7 @@ public final class TabManager: ObservableObject {
                 
                 // Don't discard the top 2 most recently used tabs in that space.
                 // This preserves the Web Inspector and page state if the user switches back soon.
-                guard tabsToKeep.contains(tab.id) else { continue }
+                guard !tabsToKeep.contains(tab.id) else { continue }
                 
                 self.discardTabWebView(tab)
                 discardedCount += 1
@@ -347,7 +347,22 @@ public final class TabManager: ObservableObject {
 
     public func nextTab() {
         let currentSpaceId = SpaceManager.shared.activeSpaceId
-        let spaceTabs = tabs.filter { $0.spaceId == currentSpaceId }
+        var spaceTabs = tabs.filter { $0.spaceId == currentSpaceId }
+        
+        // Ensure there's at least one tab
+        if spaceTabs.isEmpty {
+            addTab(in: currentSpaceId, isPinned: true, isLocked: true)
+            return
+        }
+        
+        // If currentTab is not in the current space, switch to the most recent one
+        if currentTab?.spaceId != currentSpaceId {
+            if let lastUsed = spaceTabs.max(by: { $0.lastUsedAt < $1.lastUsedAt }) {
+                switchToTab(lastUsed)
+            }
+            return
+        }
+        
         guard let current = currentTab,
               let currentIndex = spaceTabs.firstIndex(where: { $0.id == current.id }) else { return }
         let nextIndex = (currentIndex + 1) % spaceTabs.count
@@ -356,7 +371,22 @@ public final class TabManager: ObservableObject {
     
     public func previousTab() {
         let currentSpaceId = SpaceManager.shared.activeSpaceId
-        let spaceTabs = tabs.filter { $0.spaceId == currentSpaceId }
+        var spaceTabs = tabs.filter { $0.spaceId == currentSpaceId }
+        
+        // Ensure there's at least one tab
+        if spaceTabs.isEmpty {
+            addTab(in: currentSpaceId, isPinned: true, isLocked: true)
+            return
+        }
+        
+        // If currentTab is not in the current space, switch to the most recent one
+        if currentTab?.spaceId != currentSpaceId {
+            if let lastUsed = spaceTabs.max(by: { $0.lastUsedAt < $1.lastUsedAt }) {
+                switchToTab(lastUsed)
+            }
+            return
+        }
+        
         guard let current = currentTab,
               let currentIndex = spaceTabs.firstIndex(where: { $0.id == current.id }) else { return }
         let prevIndex = (currentIndex - 1 + spaceTabs.count) % spaceTabs.count
@@ -364,8 +394,10 @@ public final class TabManager: ObservableObject {
     }
 
     public func switchToIndex(_ index: Int) {
-        guard index >= 0 && index < tabs.count else { return }
-        switchToTab(tabs[index])
+        let currentSpaceId = SpaceManager.shared.activeSpaceId
+        let spaceTabs = tabs.filter { $0.spaceId == currentSpaceId }
+        guard index >= 0 && index < spaceTabs.count else { return }
+        switchToTab(spaceTabs[index])
     }
     
     /// Move a tab from one position to another within the tabs array
@@ -385,13 +417,14 @@ public final class TabManager: ObservableObject {
         let space = SpaceManager.shared.spaces.first(where: { $0.id == tab.spaceId }) ?? SpaceManager.shared.activeSpace
         let dataStore = SpaceManager.shared.cookieDataStore(for: space)
         let webView = WebViewManager(dataStore: dataStore, isPrivateSpace: space.isPrivate, spaceId: space.id)
-        let newTab = BrowserTab(title: tab.title, url: tab.url, spaceId: tab.spaceId, webView: webView)
+        // Preserve isPinned but never duplicate isLocked
+        let newTab = BrowserTab(title: tab.title, url: tab.url, spaceId: tab.spaceId, webView: webView, isPinned: tab.isPinned, isLocked: false)
         setupManagerCallbacks(webView, for: newTab)
-        CookiePersistenceManager.shared.injectCookiesIntoDataStore(for: space, dataStore: dataStore)
-        
-        // Load same content if available
-        if !tab.url.isEmpty {
-            webView.load(tab.url)
+        CookiePersistenceManager.shared.injectCookiesIntoDataStore(for: space, dataStore: dataStore) {
+            // Load same content only after cookies are injected
+            if !tab.url.isEmpty {
+                webView.load(tab.url)
+            }
         }
         
         withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
@@ -472,10 +505,6 @@ public final class TabManager: ObservableObject {
             return
         }
         
-        // Remove focus from all elements by injecting script
-        let webViewManager = ensureWebView(for: currentTab)
-        webViewManager.webView.evaluateJavaScript("document.activeElement.blur()") { _, _ in }
-
         // If input looks like a URL (contains a dot or starts with http)
         if input.starts(with: "http://") || input.starts(with: "https://") {
             // valid full URL
@@ -486,8 +515,11 @@ public final class TabManager: ObservableObject {
             let query = input.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? input
             input = "https://duckduckgo.com/?q=\(query)"
         }
+        
+        // Remove focus from all elements by injecting script
+        let webViewManager = ensureWebView(for: currentTab, urlToLoad: input)
+        webViewManager.webView.evaluateJavaScript("document.activeElement.blur()") { _, _ in }
 
-        webViewManager.load(input)
         currentTab.url = input
         currentTab.lastUsedAt = Date()
 
@@ -541,14 +573,18 @@ public final class TabManager: ObservableObject {
             let manager = WebViewManager(dataStore: dataStore, isPrivateSpace: space.isPrivate, spaceId: space.id)
             setupManagerCallbacks(manager, for: tab)
             tab.webView = manager
-            CookiePersistenceManager.shared.injectCookiesIntoDataStore(for: space, dataStore: dataStore)
-            manager.load(tab.url)
+            CookiePersistenceManager.shared.injectCookiesIntoDataStore(for: space, dataStore: dataStore) {
+                manager.load(tab.url)
+            }
         }
     }
     
     @discardableResult
-    private func ensureWebView(for tab: BrowserTab) -> WebViewManager {
+    private func ensureWebView(for tab: BrowserTab, urlToLoad: String? = nil) -> WebViewManager {
         if let manager = tab.webView {
+            if let url = urlToLoad {
+                manager.load(url)
+            }
             return manager
         }
 
@@ -557,7 +593,11 @@ public final class TabManager: ObservableObject {
         let manager = WebViewManager(dataStore: dataStore, isPrivateSpace: space.isPrivate, spaceId: space.id)
         setupManagerCallbacks(manager, for: tab)
         tab.webView = manager
-        CookiePersistenceManager.shared.injectCookiesIntoDataStore(for: space, dataStore: dataStore)
+        CookiePersistenceManager.shared.injectCookiesIntoDataStore(for: space, dataStore: dataStore) {
+            if let url = urlToLoad {
+                manager.load(url)
+            }
+        }
         return manager
     }
 
@@ -568,6 +608,16 @@ public final class TabManager: ObservableObject {
         
         manager.onCloseRequested = { [weak self] in
             self?.closeTab(tab)
+        }
+        
+        // Handle locked tab navigation - open in new tab
+        manager.onLockedTabNavigation = { [weak self] url in
+            guard let self = self else { return false }
+            guard tab.isLocked else { return false }
+            // Create new tab with the URL
+            let urlString = url.absoluteString
+            self.addTab(url: urlString, in: tab.spaceId)
+            return true
         }
         
         // Monitor media playback state changes
@@ -730,8 +780,10 @@ public final class TabManager: ObservableObject {
         }
         
         // Restore tabs (without webviews - they'll be lazy loaded)
+        // Home tabs (empty title) are always locked
         var restoredTabs: [BrowserTab] = []
         for persistedTab in validTabs {
+            let isHomeTab = persistedTab.title == "Home" || (persistedTab.title.isEmpty && persistedTab.url.isEmpty)
             let tab = BrowserTab(
                 id: persistedTab.id,
                 title: persistedTab.title,
@@ -739,15 +791,27 @@ public final class TabManager: ObservableObject {
                 spaceId: persistedTab.spaceId,
                 webView: nil,
                 lastUsedAt: persistedTab.lastUsedAt,
-                isPinned: persistedTab.isPinned,
-                isLocked: persistedTab.isLocked
+                isPinned: persistedTab.isPinned || isHomeTab,
+                isLocked: persistedTab.isLocked || isHomeTab
             )
             restoredTabs.append(tab)
         }
         
         self.tabs = restoredTabs
         
-        // Restore active space if valid and not private
+        // Ensure every space has at least one locked Home tab
+        for space in SpaceManager.shared.spaces {
+            let spaceTabs = self.tabs.filter { $0.spaceId == space.id }
+            if spaceTabs.isEmpty {
+                // Create locked Home tab for spaces with no tabs
+                let newTab = BrowserTab(title: "Home", url: "", spaceId: space.id, webView: nil, isPinned: true, isLocked: true)
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                    self.tabs.append(newTab)
+                }
+            }
+        }
+        
+        // Restore active space
         if let activeSpaceId = session.activeSpaceId,
            availableSpaceIds.contains(activeSpaceId),
            let space = SpaceManager.shared.spaces.first(where: { $0.id == activeSpaceId }),
@@ -760,7 +824,10 @@ public final class TabManager: ObservableObject {
             }
         }
         
-        // Restore current tab by index
+        // Restore current tab by index - guard against empty tabs
+        guard !restoredTabs.isEmpty else {
+            return false
+        }
         let targetIndex = min(max(0, session.currentTabIndex), restoredTabs.count - 1)
         self.currentTab = restoredTabs[targetIndex]
 

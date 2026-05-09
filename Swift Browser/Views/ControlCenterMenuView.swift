@@ -19,11 +19,11 @@ public struct ControlCenterMenuView: View {
     
     public var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            MenuItem(icon: "clock", title: "History", isExpanded: $isExpanded) {
+            MenuItem(icon: "clock", title: "History", shortcutKey: "⌘Y", isExpanded: $isExpanded) {
                 tabManager.openHistory()
             }
             
-            MenuItem(icon: "bookmark", title: "Bookmarks", isExpanded: $isExpanded) {
+            MenuItem(icon: "bookmark", title: "Bookmarks", shortcutKey: "⌘⌥B", isExpanded: $isExpanded) {
                 tabManager.openBookmarks()
             }
             
@@ -31,11 +31,11 @@ public struct ControlCenterMenuView: View {
                 tabManager.openCookies()
             }
             
-            MenuItem(icon: "keyboard", title: "Shortcuts", isExpanded: $isExpanded) {
+            MenuItem(icon: "keyboard", title: "Shortcuts", shortcutKey: "⌘⇧/", isExpanded: $isExpanded) {
                 tabManager.openShortcuts()
             }
             
-            MenuItem(icon: "gear", title: "Settings", isExpanded: $isExpanded) {
+            MenuItem(icon: "gear", title: "Settings", shortcutKey: "⌘,", isExpanded: $isExpanded) {
                 tabManager.openSettings()
             }
         }
@@ -50,10 +50,20 @@ public struct ControlCenterMenuView: View {
 struct MenuItem: View {
     let icon: String
     let title: String
-    let subtitle: String? = nil
+    let subtitle: String?
+    let shortcutKey: String?
     @Binding var isExpanded: Bool
     let action: () -> Void
     @State private var isHovered = false
+    
+    init(icon: String, title: String, subtitle: String? = nil, shortcutKey: String? = nil, isExpanded: Binding<Bool>, action: @escaping () -> Void) {
+        self.icon = icon
+        self.title = title
+        self.subtitle = subtitle
+        self.shortcutKey = shortcutKey
+        self._isExpanded = isExpanded
+        self.action = action
+    }
     
     var body: some View {
         Button(action: {
@@ -79,6 +89,10 @@ struct MenuItem: View {
                 }
                 
                 Spacer()
+                
+                if let shortcutKey = shortcutKey, !shortcutKey.isEmpty {
+                    KeyboardShortcutHint(shortcutKey)
+                }
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 10)

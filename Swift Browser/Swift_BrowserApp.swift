@@ -36,6 +36,7 @@ struct Swift_BrowserApp: App {
             .preferredColorScheme(darkModePreference == .dark ? .dark : (darkModePreference == .light ? .light : nil))
             .onAppear {
                 SpaceManager.shared.initializeEncryptionOnFirstLaunch()
+                StorageManager.shared.cleanupOldData(olderThanDays: 30)//Removes data from WebKit folder
             }
         }
         .commands {
